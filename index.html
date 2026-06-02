@@ -109,7 +109,7 @@
           返回列表
         </button>
 
-        <!-- 3a. 额外新增：如果大货已签收，顶部显示业务已完成横幅 -->
+        <!-- 如果大货已签收，顶部显示业务已完成横幅 -->
         <div v-if="activeMaster && activeMaster.current_step === 6" class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-center space-x-3 shadow-sm animate-pulse">
           <span class="text-2xl">🎉</span>
           <div>
@@ -173,7 +173,7 @@
                   <span v-if="step.time" class="text-xs text-slate-400 font-mono">{{ step.time }}</span>
                 </div>
                 
-                <!-- 优先显示操作员手动备注，无备注时显示默认模板说明 -->
+                <!-- 手动文字说明 -->
                 <p class="text-xs font-semibold text-emerald-700 bg-emerald-50/50 p-2 rounded-lg border border-dashed border-emerald-100 mb-1.5" v-if="step.desc && index <= activeMaster.current_step">
                   💬 实况说明：{{ step.desc }}
                 </p>
@@ -254,7 +254,7 @@
 
     </main>
 
-    <!-- 5. 管理端：更新主单进度及手动文字备注模态框 -->
+    <!-- 5. 管理端：更新主单进度模态框 -->
     <div v-if="showEditModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
       <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
@@ -276,7 +276,7 @@
             </div>
           </div>
 
-          <!-- 新增：手动文字备注输入框 -->
+          <!-- 手动文字备注 -->
           <div>
             <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">本次状态说明文字（客户可同步看见，选填）</label>
             <textarea 
@@ -493,7 +493,21 @@
           
           try {
             const { data: masters } = await supabaseClient.from('master_waybills').select('*').order('created_at', { ascending: false });
-            if (masters) masterWaybills.value = masters;
+            if (masters) {
+              // 🔥 核心防错升级 1：读取云端老数据时，自动将缺少的步骤（如第7步）补全至 7 步长度，防止前端报 undefined 错误
+              masters.forEach(master => {
+                while (master.steps.length < stepNames.length) {
+                  const currentLen = master.steps.length;
+                  master.steps.push({
+                    name: stepNames[currentLen],
+                    time: '',
+                    photo: '',
+                    desc: ''
+                  });
+                }
+              });
+              masterWaybills.value = masters;
+            }
 
             const { data: subs } = await supabaseClient.from('sub_waybills').select('*');
             if (subs) subWaybills.value = subs;
@@ -590,7 +604,20 @@
         const zoomImage = (url) => zoomedPhoto.value = url;
 
         const editMasterStatus = (master) => {
-          editingMaster.value = JSON.parse(JSON.stringify(master));
+          const clonedMaster = JSON.parse(JSON.stringify(master));
+          
+          // 🔥 核心防错升级 2：打开进度编辑前，若该运单的步骤数据不足 7 个，在内存中动态将其补满至 7 步，彻底解决旧数据无法选择“客户签收”的报错
+          while (clonedMaster.steps.length < stepNames.length) {
+            const currentLen = clonedMaster.steps.length;
+            clonedMaster.steps.push({
+              name: stepNames[currentLen],
+              time: '',
+              photo: '',
+              desc: ''
+            });
+          }
+
+          editingMaster.value = clonedMaster;
           tempFile.value = null;
           showEditModal.value = true;
         };
@@ -634,7 +661,6 @@
 
           const nowStr = new Date().toISOString().split('T').join(' ').substring(0, 16);
           
-          // 记录或保留各步骤的对应时间与说明内容
           for (let i = 0; i <= editingMaster.value.current_step; i++) {
             if (!editingMaster.value.steps[i].time) {
               editingMaster.value.steps[i].time = nowStr;
@@ -652,6 +678,7 @@
             return;
           }
 
+          // 这里会把升级后完整的 7 步数组全部保存写回 Supabase，一劳永逸修复此数据
           const { error: dbError } = await supabaseClient
             .from('master_waybills')
             .update({
@@ -670,9 +697,8 @@
           }
         };
 
-        // 新增：删除主航次运单功能
         const deleteMaster = async (masterId) => {
-          if (!confirm('💥 警告：确定要删除主单 ' + masterId + ' 吗？\n删除后该主单，以及该班次下挂载的所有拼箱客户单都将被全部同步删除，且无法恢复！')) {
+          if (!confirm('💥 警告：确定要删除主单 ' + masterId + ' 吗？\n删除该主单后，该班次下挂载的所有拼箱客户单都将被全部同步删除，且无法恢复！')) {
             return;
           }
 
@@ -702,7 +728,6 @@
           const newMaster = {
             id: newId,
             current_step: 0,
-            // 默认创建7个节点的进度说明对象
             steps: stepNames.map((name, i) => ({
               name,
               time: i === 0 ? new Date().toISOString().split('T').join(' ').substring(0, 16) : '',
@@ -770,13 +795,11 @@
           }
         };
 
-        // 新增：打开修改客户拼箱数据窗口
         const openEditSubModal = (sub) => {
           editingSubData.value = JSON.parse(JSON.stringify(sub));
           showEditSubModal.value = true;
         };
 
-        // 新增：保存修改后的客户拼箱数据
         const saveEditedSub = async () => {
           const d = editingSubData.value;
           if (!d.customer_account || !d.customer_name || !d.weight) {
@@ -826,7 +849,7 @@
           masterWaybills, subWaybills, customerConsignments, showEditModal, editingMaster,
           tempFile, uploading, showAddSubModal, newSubData, stepNames,
           showLoginModal, loginForm, submitLogin, 
-          showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster, // 新增导出变量与函数
+          showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster, 
           getStepDescription, getStepName, getMasterWaybill, getSubsForMaster,
           toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
           getTimelineLineHeight, zoomImage, editMasterStatus, setEditingStep,
