@@ -81,21 +81,28 @@
         </div>
 
         <div class="space-y-3">
+          <!-- 这里循环拼箱单列表。完结单自动附加灰色背景与完结状态 -->
           <div 
             v-for="sub in customerConsignments" 
             :key="sub.sub_id"
             @click="viewDetail(sub)"
-            class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-emerald-500 cursor-pointer transition flex justify-between items-center"
+            class="border rounded-xl p-4 cursor-pointer transition flex justify-between items-center"
+            :class="sub.current_step === 6 ? 'bg-slate-100 border-slate-200 opacity-75' : 'bg-white border-slate-100 hover:border-emerald-500 shadow-sm'"
           >
             <div>
-              <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">分单号: {{ sub.sub_id }}</span>
-              <h4 class="font-bold text-slate-800 mt-1.5">🦞 {{ sub.product }}</h4>
+              <span class="text-[10px] px-2 py-0.5 rounded font-mono" :class="sub.current_step === 6 ? 'bg-slate-200 text-slate-500' : 'bg-emerald-50 text-emerald-700'">分单号: {{ sub.sub_id }}</span>
+              <h4 class="font-bold mt-1.5" :class="sub.current_step === 6 ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-800'">
+                🦞 {{ sub.product }}
+              </h4>
               <p class="text-xs text-slate-400 mt-1">关联主单航次: {{ sub.master_id }}</p>
             </div>
-            <div class="text-right">
-              <span class="text-emerald-600 font-bold text-lg font-mono">{{ sub.weight }}</span> <span class="text-xs text-slate-500">KG</span>
-              <div class="text-xs text-emerald-500 font-bold mt-1">
-                {{ getStepName(getMasterWaybill(sub.master_id)?.current_step) }}
+            <div class="text-right flex flex-col items-end">
+              <div>
+                <span class="font-bold text-lg font-mono" :class="sub.current_step === 6 ? 'text-slate-400' : 'text-emerald-600'">{{ sub.weight }}</span> 
+                <span class="text-xs" :class="sub.current_step === 6 ? 'text-slate-400' : 'text-slate-500'"> KG</span>
+              </div>
+              <div class="text-xs font-bold mt-1" :class="sub.current_step === 6 ? 'text-slate-400' : 'text-emerald-500'">
+                {{ sub.current_step === 6 ? '✅ 业务已完结' : getStepName(sub.current_step) }}
               </div>
             </div>
           </div>
@@ -109,12 +116,12 @@
           返回列表
         </button>
 
-        <!-- 如果大货已签收，顶部显示业务已完成横幅 -->
-        <div v-if="activeMaster && activeMaster.current_step === 6" class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-center space-x-3 shadow-sm animate-pulse">
+        <!-- 如果该客户的分箱已被妥投签收，顶部显示结单勋章横幅 -->
+        <div v-if="activeSub.current_step === 6" class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-center space-x-3 shadow-sm animate-pulse">
           <span class="text-2xl">🎉</span>
           <div>
-            <h4 class="font-bold text-sm">本次国际冷链业务已顺利结单</h4>
-            <p class="text-[11px] text-emerald-600 mt-0.5">您的龙虾已被妥投签收，期待与您的下一次合作！</p>
+            <h4 class="font-bold text-sm">本次冷链派送业务已顺利结单</h4>
+            <p class="text-[11px] text-emerald-600 mt-0.5">您的龙虾已被您妥投签收，期待下次合作！</p>
           </div>
         </div>
 
@@ -127,39 +134,39 @@
               <p class="text-xs text-emerald-200 mt-0.5">客户：{{ activeSub.customer_name }}</p>
             </div>
             <span class="px-2.5 py-1 bg-emerald-500 bg-opacity-30 rounded-full text-xs font-bold border border-emerald-400">
-              {{ getStepName(activeMaster?.current_step) }}
+              {{ getStepName(activeSub.current_step) }}
             </span>
           </div>
           
           <div class="grid grid-cols-2 gap-4 pt-4 border-t border-emerald-500 border-opacity-30">
             <div>
-              <p class="text-emerald-200 text-xs">您分配的货物</p>
+              <p class="text-emerald-200 text-xs">您的专属货品</p>
               <p class="font-semibold text-sm">🦞 {{ activeSub.product }}</p>
             </div>
             <div>
-              <p class="text-emerald-200 text-xs">您所属的重量</p>
+              <p class="text-emerald-200 text-xs">您的货品重量</p>
               <p class="font-semibold text-lg font-mono">{{ activeSub.weight }} KG</p>
             </div>
           </div>
         </div>
 
-        <!-- 时间轴 -->
-        <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm" v-if="activeMaster">
+        <!-- 客户专属派送清关时间轴（已下放到子单本身） -->
+        <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
           <h4 class="font-bold text-slate-800 mb-6 flex items-center">
             <span class="w-1.5 h-4 bg-emerald-600 rounded-full mr-2"></span>
-            空运主单清关进度 (主单: {{ activeMaster.id }})
+            专属清关配送进度 (单号: {{ activeSub.sub_id }})
           </h4>
 
           <div class="relative pl-6 space-y-8">
             <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100 z-0"></div>
             <div class="absolute left-[11px] top-2 w-0.5 bg-emerald-500 transition-all duration-500 z-0" :style="{ height: getTimelineLineHeight() }"></div>
 
-            <div v-for="(step, index) in activeMaster.steps" :key="index" class="relative flex items-start space-x-4">
+            <div v-for="(step, index) in activeSub.steps" :key="index" class="relative flex items-start space-x-4">
               <div class="absolute -left-[20px] z-10">
-                <div v-if="index < activeMaster.current_step" class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm">
+                <div v-if="index < activeSub.current_step" class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 </div>
-                <div v-else-if="index === activeMaster.current_step" class="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-md ring-4 ring-emerald-100 pulse-animation">
+                <div v-else-if="index === activeSub.current_step" class="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-md ring-4 ring-emerald-100 pulse-animation">
                   <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
                 </div>
                 <div v-else class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-400">
@@ -169,18 +176,18 @@
 
               <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-center mb-1">
-                  <h5 class="font-bold text-sm" :class="index <= activeMaster.current_step ? 'text-slate-800' : 'text-slate-400'">{{ step.name }}</h5>
+                  <h5 class="font-bold text-sm" :class="index <= activeSub.current_step ? 'text-slate-800' : 'text-slate-400'">{{ step.name }}</h5>
                   <span v-if="step.time" class="text-xs text-slate-400 font-mono">{{ step.time }}</span>
                 </div>
                 
                 <!-- 手动文字说明 -->
-                <p class="text-xs font-semibold text-emerald-700 bg-emerald-50/50 p-2 rounded-lg border border-dashed border-emerald-100 mb-1.5" v-if="step.desc && index <= activeMaster.current_step">
-                  💬 实况说明：{{ step.desc }}
+                <p class="text-xs font-semibold text-emerald-700 bg-emerald-50/50 p-2 rounded-lg border border-dashed border-emerald-100 mb-1.5" v-if="step.desc && index <= activeSub.current_step">
+                  💬 派送实况：{{ step.desc }}
                 </p>
-                <p class="text-xs" :class="index <= activeMaster.current_step ? 'text-slate-500' : 'text-slate-300'">{{ getStepDescription(index) }}</p>
+                <p class="text-xs" :class="index <= activeSub.current_step ? 'text-slate-500' : 'text-slate-300'">{{ getStepDescription(index) }}</p>
 
                 <!-- 照片缩略图 -->
-                <div v-if="step.photo && index <= activeMaster.current_step" class="mt-2.5">
+                <div v-if="step.photo && index <= activeSub.current_step" class="mt-2.5">
                   <div class="inline-block relative rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shadow-sm cursor-pointer" @click="zoomImage(step.photo)">
                     <img :src="step.photo" alt="现场照片" class="h-20 w-36 object-cover hover:opacity-90 transition">
                   </div>
@@ -209,21 +216,16 @@
             <div class="flex justify-between items-start mb-2">
               <div>
                 <span class="text-xs font-mono font-bold text-slate-400">主单号: {{ master.id }}</span>
-                <h4 class="font-bold text-emerald-800 text-sm">当前状态: {{ getStepName(master.current_step) }}</h4>
+                <p class="text-xs text-slate-400">批次创建时间: {{ master.created_at ? new Date(master.created_at).toLocaleString() : '未知' }}</p>
               </div>
-              <div class="flex space-x-2">
-                <button @click="editMasterStatus(master)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
-                  更新进度
-                </button>
-                <button @click="deleteMaster(master.id)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
-                  删除主单 🗑️
-                </button>
-              </div>
+              <button @click="deleteMaster(master.id)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
+                删除主单 🗑
+              </button>
             </div>
 
             <div class="mt-3 pt-3 border-t border-slate-100">
               <div class="flex justify-between items-center mb-2">
-                <span class="text-xs font-bold text-slate-500">关联客户拼舱货量：</span>
+                <span class="text-xs font-bold text-slate-500">客户专属清关派送明细：</span>
                 <button @click="addSubToMaster(master.id)" class="text-[10px] text-emerald-600 hover:underline font-bold">+ 关联新客户</button>
               </div>
               
@@ -235,9 +237,17 @@
                       <span class="text-[10px] bg-slate-200 text-slate-600 px-1 rounded">{{ sub.customer_account }}</span>
                     </div>
                     <div class="text-slate-500 mt-0.5">{{ sub.customer_name }} - {{ sub.product }}</div>
+                    <div class="text-[10px] text-emerald-600 font-bold mt-1">
+                      当前进度: {{ getStepName(sub.current_step) }}
+                    </div>
                   </div>
-                  <div class="flex items-center space-x-3">
-                    <div class="text-right font-bold text-slate-700">{{ sub.weight }} KG</div>
+                  <div class="flex items-center space-x-2">
+                    <div class="text-right font-bold text-slate-700 mr-2">{{ sub.weight }} KG</div>
+                    
+                    <!-- 更新进度已经转移到子单行内，以实现各客户独立派送时间轴 -->
+                    <button @click="editSubProgress(sub)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2 py-1.5 rounded transition">
+                      更新进度
+                    </button>
                     <button @click="openEditSubModal(sub)" class="text-blue-600 hover:text-blue-800 font-bold p-1 bg-white border rounded shadow-sm">
                       修改 ✏️
                     </button>
@@ -254,22 +264,27 @@
 
     </main>
 
-    <!-- 5. 管理端：更新主单进度模态框 -->
+    <!-- 5. 管理端：更新特定拼箱客户进度模态框 -->
     <div v-if="showEditModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
       <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
-          <h3 class="font-bold text-lg text-slate-800">主单进度一键变更</h3>
+          <div>
+            <h3 class="font-bold text-base text-slate-800">更新客户清关配送进度</h3>
+            <p class="text-[10px] text-slate-400" v-if="editingSubProgress">
+              客户: {{ editingSubProgress.customer_name }} | 子单: {{ editingSubProgress.sub_id }}
+            </p>
+          </div>
           <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
         </div>
 
-        <div v-if="editingMaster" class="space-y-4">
+        <div v-if="editingSubProgress" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">选择当前最新清关阶段</label>
+            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">选择当前最新清关配送阶段</label>
             <div class="grid grid-cols-2 gap-2">
               <button 
                 v-for="(stepName, idx) in stepNames" :key="idx" @click="setEditingStep(idx)" type="button"
                 class="p-2.5 rounded-lg border text-left text-xs font-semibold flex items-center justify-between transition"
-                :class="editingMaster.current_step === idx ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-200' : 'border-slate-200 bg-white text-slate-600'"
+                :class="editingSubProgress.current_step === idx ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-200' : 'border-slate-200 bg-white text-slate-600'"
               >
                 <span>{{ idx + 1 }}. {{ stepName }}</span>
               </button>
@@ -278,10 +293,10 @@
 
           <!-- 手动文字备注 -->
           <div>
-            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">本次状态说明文字（客户可同步看见，选填）</label>
+            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">本次实况派送文字（客户同步看见，选填）</label>
             <textarea 
-              v-model="editingMaster.steps[editingMaster.current_step].desc" 
-              placeholder="例如：小龙虾清关已放行，车辆正在驶出机场仓库..."
+              v-model="editingSubProgress.steps[editingSubProgress.current_step].desc" 
+              placeholder="例如：龙虾已完成单独分箱并安排冷藏车配送，预计3小时送达..."
               class="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none min-h-[70px] font-sans"
             ></textarea>
           </div>
@@ -299,7 +314,7 @@
             </div>
           </div>
 
-          <button @click="saveMasterStatus" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md">
+          <button @click="saveSubProgressStatus" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md">
             同步更新进度
           </button>
         </div>
@@ -433,21 +448,20 @@
         const zoomedPhoto = ref(null);
         
         const showEditModal = ref(false);
-        const editingMaster = ref(null);
+        const editingSubProgress = ref(null); // 指向当前正在单独更新进度的拼箱客户
         const tempFile = ref(null);
         const uploading = ref(false);
 
         const showAddSubModal = ref(false);
         const newSubData = ref({ masterId: '', customer_account: '', customer_name: '', product: '', weight: '' });
 
-        // 登录和编辑客户数据相关的状态
         const showLoginModal = ref(false);
         const loginForm = ref({ username: '', password: '' });
         
         const showEditSubModal = ref(false);
         const editingSubData = ref(null);
 
-        // 升级后一共拥有 7 个步骤 (索引从 0 至 6)
+        // 7个步骤的进度
         const stepNames = ['接单预审', '航班起飞', '机场落地', '海关申报', '查验放行', '装车配送', '客户签收'];
         const masterWaybills = ref([]);
         const subWaybills = ref([]);
@@ -456,19 +470,7 @@
         const loadDataFromSupabase = async () => {
           if (!supabaseClient) {
             masterWaybills.value = [
-              {
-                id: 'KH20260601',
-                current_step: 2,
-                steps: [
-                  { name: stepNames[0], time: '2026-06-01 08:30', photo: '', desc: '' },
-                  { name: stepNames[1], time: '2026-06-01 11:20', photo: '', desc: '' },
-                  { name: stepNames[2], time: '2026-06-01 13:45', photo: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&q=80', desc: '' },
-                  { name: stepNames[3], time: '', photo: '', desc: '' },
-                  { name: stepNames[4], time: '', photo: '', desc: '' },
-                  { name: stepNames[5], time: '', photo: '', desc: '' },
-                  { name: stepNames[6], time: '', photo: '', desc: '' }
-                ]
-              }
+              { id: 'KH20260601', created_at: '2026-06-01T08:30:00Z' }
             ];
             subWaybills.value = [
               {
@@ -477,7 +479,14 @@
                 customer_account: 'CUST-ALEX',
                 customer_name: '金边万客隆-Alex',
                 product: '柬埔寨鲜活中号蓝龙虾 (分箱 A)',
-                weight: '45.0'
+                weight: '45.0',
+                current_step: 2,
+                steps: stepNames.map((name, i) => ({
+                  name,
+                  time: i <= 2 ? '2026-06-01 13:45' : '',
+                  photo: i === 2 ? 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&q=80' : '',
+                  desc: ''
+                }))
               },
               {
                 sub_id: 'SUB-2026-A02',
@@ -485,7 +494,14 @@
                 customer_account: 'CUST-SOPHIA',
                 customer_name: '西港陈总',
                 product: '柬埔寨特大号蓝龙虾 (分箱 B)',
-                weight: '75.0'
+                weight: '75.0',
+                current_step: 6, // 客户签收
+                steps: stepNames.map((name, i) => ({
+                  name,
+                  time: i <= 6 ? '2026-06-01 18:30' : '',
+                  photo: '',
+                  desc: i === 6 ? '陈总在西港餐馆前台亲自完成了龙虾清点和温度查验，全部生存鲜活动态。' : ''
+                }))
               }
             ];
             return;
@@ -493,24 +509,34 @@
           
           try {
             const { data: masters } = await supabaseClient.from('master_waybills').select('*').order('created_at', { ascending: false });
-            if (masters) {
-              // 🔥 核心防错升级 1：读取云端老数据时，自动将缺少的步骤（如第7步）补全至 7 步长度，防止前端报 undefined 错误
-              masters.forEach(master => {
-                while (master.steps.length < stepNames.length) {
-                  const currentLen = master.steps.length;
-                  master.steps.push({
-                    name: stepNames[currentLen],
-                    time: '',
-                    photo: '',
-                    desc: ''
-                  });
-                }
-              });
-              masterWaybills.value = masters;
-            }
+            if (masters) masterWaybills.value = masters;
 
             const { data: subs } = await supabaseClient.from('sub_waybills').select('*');
-            if (subs) subWaybills.value = subs;
+            if (subs) {
+              // 自动补齐/升级机制：如果以前创建的分箱子单没有专属 steps 数据，在此处自动补全 7 个进度节点
+              subs.forEach(sub => {
+                if (!sub.steps || sub.steps.length === 0) {
+                  sub.current_step = 0;
+                  sub.steps = stepNames.map((name, i) => ({
+                    name,
+                    time: i === 0 ? 'Previously Init' : '',
+                    photo: '',
+                    desc: ''
+                  }));
+                } else {
+                  while (sub.steps.length < stepNames.length) {
+                    const currentLen = sub.steps.length;
+                    sub.steps.push({
+                      name: stepNames[currentLen],
+                      time: '',
+                      photo: '',
+                      desc: ''
+                    });
+                  }
+                }
+              });
+              subWaybills.value = subs;
+            }
           } catch (e) {
             console.error('读取云数据库失败', e);
           }
@@ -563,30 +589,40 @@
           const cleaned = searchQuery.value.trim().toUpperCase();
           if (!cleaned) return alert('请输入账号');
 
+          let matched = [];
           if (!supabaseClient) {
-            const matched = subWaybills.value.filter(sub => sub.customer_account.toUpperCase() === cleaned);
-            if (matched.length === 0) return alert('本地Mock模式：请输入 CUST-ALEX 或 CUST-SOPHIA 测试');
-            customerConsignments.value = matched;
-            if (matched.length === 1) {
-              viewDetail(matched[0]);
-            } else {
-              currentView.value = 'my-consignments';
+            matched = subWaybills.value.filter(sub => sub.customer_account.toUpperCase() === cleaned);
+          } else {
+            const { data, error } = await supabaseClient
+              .from('sub_waybills')
+              .select('*')
+              .eq('customer_account', cleaned);
+            if (error) {
+              return alert('查询失败: ' + error.message);
             }
-            return;
+            matched = data || [];
           }
 
-          const { data, error } = await supabaseClient
-            .from('sub_waybills')
-            .select('*')
-            .eq('customer_account', cleaned);
-
-          if (error || !data || data.length === 0) {
-            return alert('未查询到在途龙虾拼舱单，请核对账号。');
+          if (matched.length === 0) {
+            return alert('本地未查询到该账号有在途拼箱单。本地测试可用：CUST-ALEX 或 CUST-SOPHIA');
           }
 
-          customerConsignments.value = data;
-          if (data.length === 1) {
-            viewDetail(data[0]);
+          // 核心业务功能优化：数据排序算法（在途置顶、最新置顶、完结置底）
+          matched.sort((a, b) => {
+            const aCompleted = a.current_step === 6;
+            const bCompleted = b.current_step === 6;
+            
+            // 1. 如果完结状态不同：未完结的排在最前，已完结排在最后
+            if (aCompleted !== bCompleted) {
+              return aCompleted ? 1 : -1;
+            }
+            // 2. 如果完结状态相同：按子单号递减排序（最新的业务排在最上面）
+            return b.sub_id.localeCompare(a.sub_id);
+          });
+
+          customerConsignments.value = matched;
+          if (matched.length === 1) {
+            viewDetail(matched[0]);
           } else {
             currentView.value = 'my-consignments';
           }
@@ -600,16 +636,16 @@
 
         const goBackToQuery = () => currentView.value = 'query';
         const goBackToList = () => customerConsignments.value.length > 1 ? currentView.value = 'my-consignments' : currentView.value = 'query';
-        const getTimelineLineHeight = () => activeMaster.value ? `${(activeMaster.value.current_step / 6) * 100}%` : '0%';
+        const getTimelineLineHeight = () => activeSub.value ? `${(activeSub.value.current_step / 6) * 100}%` : '0%';
         const zoomImage = (url) => zoomedPhoto.value = url;
 
-        const editMasterStatus = (master) => {
-          const clonedMaster = JSON.parse(JSON.stringify(master));
+        // 调整为子单级别单独更新进度
+        const editSubProgress = (sub) => {
+          const clonedSub = JSON.parse(JSON.stringify(sub));
           
-          // 🔥 核心防错升级 2：打开进度编辑前，若该运单的步骤数据不足 7 个，在内存中动态将其补满至 7 步，彻底解决旧数据无法选择“客户签收”的报错
-          while (clonedMaster.steps.length < stepNames.length) {
-            const currentLen = clonedMaster.steps.length;
-            clonedMaster.steps.push({
+          while (clonedSub.steps.length < stepNames.length) {
+            const currentLen = clonedSub.steps.length;
+            clonedSub.steps.push({
               name: stepNames[currentLen],
               time: '',
               photo: '',
@@ -617,13 +653,13 @@
             });
           }
 
-          editingMaster.value = clonedMaster;
+          editingSubProgress.value = clonedSub;
           tempFile.value = null;
           showEditModal.value = true;
         };
 
         const setEditingStep = (idx) => {
-          editingMaster.value.current_step = idx;
+          editingSubProgress.value.current_step = idx;
         };
 
         const onPhotoSelected = (e) => {
@@ -631,16 +667,17 @@
           if (file) tempFile.value = file;
         };
 
-        const saveMasterStatus = async () => {
-          const target = masterWaybills.value.find(m => m.id === editingMaster.value.id);
+        // 单独保存每个客户货物的清关与派送进度
+        const saveSubProgressStatus = async () => {
+          const target = subWaybills.value.find(s => s.sub_id === editingSubProgress.value.sub_id);
           if (!target) return;
 
           uploading.value = true;
-          let photoUrl = target.steps[editingMaster.value.current_step]?.photo || '';
+          let photoUrl = target.steps[editingSubProgress.value.current_step]?.photo || '';
 
           if (tempFile.value) {
             const fileExt = tempFile.value.name.split('.').pop();
-            const fileName = editingMaster.value.id + '_step' + editingMaster.value.current_step + '_' + Date.now() + '.' + fileExt;
+            const fileName = editingSubProgress.value.sub_id + '_step' + editingSubProgress.value.current_step + '_' + Date.now() + '.' + fileExt;
             
             const { data, error } = await supabaseClient.storage
               .from('lobster-photos')
@@ -660,38 +697,37 @@
           }
 
           const nowStr = new Date().toISOString().split('T').join(' ').substring(0, 16);
-          
-          for (let i = 0; i <= editingMaster.value.current_step; i++) {
-            if (!editingMaster.value.steps[i].time) {
-              editingMaster.value.steps[i].time = nowStr;
+          for (let i = 0; i <= editingSubProgress.value.current_step; i++) {
+            if (!editingSubProgress.value.steps[i].time) {
+              editingSubProgress.value.steps[i].time = nowStr;
             }
           }
 
-          editingMaster.value.steps[editingMaster.value.current_step].photo = photoUrl;
+          editingSubProgress.value.steps[editingSubProgress.value.current_step].photo = photoUrl;
 
           if (!supabaseClient) {
-            target.current_step = editingMaster.value.current_step;
-            target.steps = editingMaster.value.steps;
+            target.current_step = editingSubProgress.value.current_step;
+            target.steps = editingSubProgress.value.steps;
             showEditModal.value = false;
             uploading.value = false;
-            alert('本地Mock模式：更新进度成功！');
+            alert('本地Mock模式：更新拼箱单独物流进度成功！');
             return;
           }
 
-          // 这里会把升级后完整的 7 步数组全部保存写回 Supabase，一劳永逸修复此数据
+          // 将当前拼箱子单（分单）的步骤写回 sub_waybills 数据库表
           const { error: dbError } = await supabaseClient
-            .from('master_waybills')
+            .from('sub_waybills')
             .update({
-              current_step: editingMaster.value.current_step,
-              steps: editingMaster.value.steps
+              current_step: editingSubProgress.value.current_step,
+              steps: editingSubProgress.value.steps
             })
-            .eq('id', editingMaster.value.id);
+            .eq('sub_id', editingSubProgress.value.sub_id);
 
           uploading.value = false;
           if (dbError) {
-            alert('保存进度失败: ' + dbError.message);
+            alert('保存客户进度失败: ' + dbError.message);
           } else {
-            alert('清关进度已同步云端！');
+            alert('客户专属清关配送进度更新并同步成功！');
             showEditModal.value = false;
             loadDataFromSupabase();
           }
@@ -727,13 +763,7 @@
           const newId = 'KH' + new Date().toISOString().substring(2,10).split('-').join('') + Math.floor(Math.random()*100).toString().padStart(2, '0');
           const newMaster = {
             id: newId,
-            current_step: 0,
-            steps: stepNames.map((name, i) => ({
-              name,
-              time: i === 0 ? new Date().toISOString().split('T').join(' ').substring(0, 16) : '',
-              photo: '',
-              desc: ''
-            }))
+            created_at: new Date().toISOString()
           };
 
           if (!supabaseClient) {
@@ -775,7 +805,14 @@
             customer_account: d.customer_account.trim().toUpperCase(),
             customer_name: d.customer_name,
             product: d.product,
-            weight: parseFloat(d.weight)
+            weight: parseFloat(d.weight),
+            current_step: 0,
+            steps: stepNames.map((name, i) => ({
+              name,
+              time: i === 0 ? new Date().toISOString().split('T').join(' ').substring(0, 16) : '',
+              photo: '',
+              desc: ''
+            }))
           };
 
           if (!supabaseClient) {
@@ -846,9 +883,9 @@
 
         return {
           currentRole, currentView, searchQuery, activeSub, activeMaster, zoomedPhoto,
-          masterWaybills, subWaybills, customerConsignments, showEditModal, editingMaster,
+          masterWaybills, subWaybills, customerConsignments, showEditModal, editingSubProgress,
           tempFile, uploading, showAddSubModal, newSubData, stepNames,
-          showLoginModal, loginForm, submitLogin, 
+          showLoginModal, loginForm, submitLogin, editSubProgress, saveSubProgressStatus,
           showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster, 
           getStepDescription, getStepName, getMasterWaybill, getSubsForMaster,
           toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
