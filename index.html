@@ -292,13 +292,24 @@
   <script>
     const { createApp, ref, onMounted } = Vue;
 
-    // ==================== 🛠 配置你的 SUPABASE 凭证 ====================
-    const SUPABASE_URL = 'https://gowbjykkfsqsybddvbyu.supabase.co/rest/v1/'; // 替换为你的 Supabase URL
+    // ==================== 🛠 仔细填入您的 SUPABASE 凭证 ====================
+    const SUPABASE_URL = 'https://gowbjykkfsqsybddvbyu.supabase.co/rest/v1/'; // 示例：'https://xxxx.supabase.co'
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdvd2JqeWtrZnNxc3liZGR2Ynl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODQ1NDQsImV4cCI6MjA5NTk2MDU0NH0.VcsrlWfKUPG2eCbKle0ckL68xw4EgiIImj-JW6CE6Kc
-'; // 替换为你的 Supabase anon key
+'; // 示例：'eyJhbGciOiJIUzI1Ni...'
     // ===================================================================
 
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let supabaseClient = null;
+    const isConfigured = SUPABASE_URL && !SUPABASE_URL.includes('请在这里') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('请在这里');
+
+    if (isConfigured) {
+      try {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      } catch (e) {
+        console.error('Supabase 初始化错误:', e);
+      }
+    } else {
+      console.warn('⚠️ 未检测到有效 Supabase 配置，当前运行在 Mock 演示模式。');
+    }
 
     createApp({
       setup() {
@@ -322,18 +333,51 @@
         const subWaybills = ref([]);
         const customerConsignments = ref([]);
 
-        // 从 Supabase 实时加载数据
         const loadDataFromSupabase = async () => {
+          if (!supabaseClient) {
+            masterWaybills.value = [
+              {
+                id: 'KH20260601',
+                current_step: 2,
+                steps: [
+                  { name: '接单预审', time: '2026-06-01 08:30', photo: '' },
+                  { name: '航班起飞', time: '2026-06-01 11:20', photo: '' },
+                  { name: '机场落地', time: '2026-06-01 13:45', photo: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&q=80' },
+                  { name: '海关申报', time: '', photo: '' },
+                  { name: '查验放行', time: '', photo: '' },
+                  { name: '装车配送', time: '', photo: '' }
+                ]
+              }
+            ];
+            subWaybills.value = [
+              {
+                sub_id: 'SUB-2026-A01',
+                master_id: 'KH20260601',
+                customer_account: 'CUST-ALEX',
+                customer_name: '金边万客隆-Alex',
+                product: '柬埔寨鲜活中号蓝龙虾 (分箱 A)',
+                weight: '45.0'
+              },
+              {
+                sub_id: 'SUB-2026-A02',
+                master_id: 'KH20260601',
+                customer_account: 'CUST-SOPHIA',
+                customer_name: '西港陈总',
+                product: '柬埔寨特大号蓝龙虾 (分箱 B)',
+                weight: '75.0'
+              }
+            ];
+            return;
+          }
+          
           try {
-            // 获取所有主单
-            const { data: masters, error: err1 } = await supabaseClient.from('master_waybills').select('*').order('created_at', { ascending: false });
+            const { data: masters } = await supabaseClient.from('master_waybills').select('*').order('created_at', { ascending: false });
             if (masters) masterWaybills.value = masters;
 
-            // 获取所有分单
-            const { data: subs, error: err2 } = await supabaseClient.from('sub_waybills').select('*');
+            const { data: subs } = await supabaseClient.from('sub_waybills').select('*');
             if (subs) subWaybills.value = subs;
           } catch (e) {
-            console.error('加载 Supabase 失败', e);
+            console.error('读取云数据库失败', e);
           }
         };
 
@@ -365,12 +409,22 @@
           }
         };
 
-        // 按客户账号/手机号查询
         const handleSearch = async () => {
           const cleaned = searchQuery.value.trim().toUpperCase();
           if (!cleaned) return alert('请输入账号');
 
-          // 从 Supabase 模糊查询对应分单
+          if (!supabaseClient) {
+            const matched = subWaybills.value.filter(sub => sub.customer_account.toUpperCase() === cleaned);
+            if (matched.length === 0) return alert('本地Mock模式：请输入 CUST-ALEX 或 CUST-SOPHIA 测试');
+            customerConsignments.value = matched;
+            if (matched.length === 1) {
+              viewDetail(matched[0]);
+            } else {
+              currentView.value = 'my-consignments';
+            }
+            return;
+          }
+
           const { data, error } = await supabaseClient
             .from('sub_waybills')
             .select('*')
@@ -399,7 +453,6 @@
         const getTimelineLineHeight = () => activeMaster.value ? `${(activeMaster.value.current_step / 5) * 100}%` : '0%';
         const zoomImage = (url) => zoomedPhoto.value = url;
 
-        // 管理员：打开状态编辑
         const editMasterStatus = (master) => {
           editingMaster.value = JSON.parse(JSON.stringify(master));
           tempFile.value = null;
@@ -410,24 +463,36 @@
           editingMaster.value.current_step = idx;
         };
 
-        // 用户拍照选中文件
         const onPhotoSelected = (e) => {
           const file = e.target.files[0];
           if (file) tempFile.value = file;
         };
 
-        // 同步保存状态至 Supabase
         const saveMasterStatus = async () => {
           const target = masterWaybills.value.find(m => m.id === editingMaster.value.id);
           if (!target) return;
 
+          if (!supabaseClient) {
+            alert('本地Mock模式：更新保存成功（内存刷新）');
+            const targetStepIdx = editingMaster.value.current_step;
+            const nowStr = new Date().toISOString().substring(11, 16);
+            for (let i = 0; i <= targetStepIdx; i++) {
+              if (!editingMaster.value.steps[i].time) {
+                editingMaster.value.steps[i].time = 'Today ' + nowStr;
+              }
+            }
+            target.current_step = targetStepIdx;
+            target.steps = editingMaster.value.steps;
+            showEditModal.value = false;
+            return;
+          }
+
           uploading.value = true;
           let photoUrl = target.steps[editingMaster.value.current_step]?.photo || '';
 
-          // 1. 如果拍了新照片，先上传到 Supabase Storage
           if (tempFile.value) {
             const fileExt = tempFile.value.name.split('.').pop();
-            const fileName = `${editingMaster.value.id}_step${editingMaster.value.current_step}_${Date.now()}.${fileExt}`;
+            const fileName = editingMaster.value.id + '_step' + editingMaster.value.current_step + '_' + Date.now() + '.' + fileExt;
             
             const { data, error } = await supabaseClient.storage
               .from('lobster-photos')
@@ -439,7 +504,6 @@
               return;
             }
 
-            // 获取公共可访问 URL
             const { data: publicUrlData } = supabaseClient.storage
               .from('lobster-photos')
               .getPublicUrl(fileName);
@@ -447,18 +511,15 @@
             photoUrl = publicUrlData.publicUrl;
           }
 
-          // 2. 自动补充前面步骤的缺失时间戳
-          const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+          const nowStr = new Date().toISOString().split('T').join(' ').substring(0, 16);
           for (let i = 0; i <= editingMaster.value.current_step; i++) {
             if (!editingMaster.value.steps[i].time) {
               editingMaster.value.steps[i].time = nowStr;
             }
           }
 
-          // 关联新照片链接
           editingMaster.value.steps[editingMaster.value.current_step].photo = photoUrl;
 
-          // 3. 将最新状态写回 Supabase 数据库
           const { error: dbError } = await supabaseClient
             .from('master_waybills')
             .update({
@@ -471,35 +532,39 @@
           if (dbError) {
             alert('保存进度失败: ' + dbError.message);
           } else {
-            alert('清关进度及照片已实时同步至云端！');
+            alert('清关进度已同步云端！');
             showEditModal.value = false;
-            loadDataFromSupabase(); // 重新加载刷新
+            loadDataFromSupabase();
           }
         };
 
-        // 管理端：新建主单
         const openAddMasterModal = async () => {
-          const newId = 'KH' + new Date().toISOString().substring(2,10).replace(/-/g,'') + Math.floor(Math.random()*100).toString().padStart(2, '0');
+          const newId = 'KH' + new Date().toISOString().substring(2,10).split('-').join('') + Math.floor(Math.random()*100).toString().padStart(2, '0');
           const newMaster = {
             id: newId,
             current_step: 0,
             steps: stepNames.map((name, i) => ({
               name,
-              time: i === 0 ? new Date().toISOString().replace('T', ' ').substring(0, 16) : '',
+              time: i === 0 ? new Date().toISOString().split('T').join(' ').substring(0, 16) : '',
               photo: ''
             }))
           };
+
+          if (!supabaseClient) {
+            masterWaybills.value.unshift(newMaster);
+            alert('本地Mock模式：成功创建临时主单 ' + newId);
+            return;
+          }
 
           const { error } = await supabaseClient.from('master_waybills').insert([newMaster]);
           if (error) {
             alert('创建主单失败: ' + error.message);
           } else {
-            alert(`主航次 ${newId} 创建完成！`);
+            alert('主航次 ' + newId + ' 创建完成！');
             loadDataFromSupabase();
           }
         };
 
-        // 管理员：关联新客户拼单
         const addSubToMaster = (masterId) => {
           newSubData.value = {
             masterId: masterId,
@@ -517,14 +582,22 @@
             return alert('请完整填写信息');
           }
 
+          const newSubId = 'SUB-' + new Date().toISOString().substring(2,10).split('-').join('') + Math.floor(Math.random()*100).toString().padStart(2, '0');
           const newSub = {
-            sub_id: 'SUB-' + new Date().toISOString().substring(2,10).replace(/-/g,'') + Math.floor(Math.random()*100).toString().padStart(2, '0'),
+            sub_id: newSubId,
             master_id: d.masterId,
             customer_account: d.customer_account.trim().toUpperCase(),
             customer_name: d.customer_name,
             product: d.product,
             weight: parseFloat(d.weight)
           };
+
+          if (!supabaseClient) {
+            subWaybills.value.push(newSub);
+            alert('本地Mock模式：关联客户货品成功');
+            showAddSubModal.value = false;
+            return;
+          }
 
           const { error } = await supabaseClient.from('sub_waybills').insert([newSub]);
           if (error) {
