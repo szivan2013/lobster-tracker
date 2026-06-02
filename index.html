@@ -287,6 +287,45 @@
       <img :src="zoomedPhoto" class="max-w-full max-h-[85vh] rounded-lg object-contain">
     </div>
 
+    <!-- 8. 操作员登录安全校验模态框 -->
+    <div v-if="showLoginModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-xl">
+        <h3 class="font-bold text-lg text-slate-800 border-b pb-2 flex items-center">
+          <span class="mr-2">🔒</span> 货代操作员安全登录
+        </h3>
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block text-slate-500 mb-1">用户名</label>
+            <input 
+              type="text" 
+              v-model="loginForm.username" 
+              placeholder="请输入操作员用户名" 
+              class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono"
+              @keyup.enter="submitLogin"
+            >
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">密码</label>
+            <input 
+              type="password" 
+              v-model="loginForm.password" 
+              placeholder="请输入密码" 
+              class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono"
+              @keyup.enter="submitLogin"
+            >
+          </div>
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button @click="showLoginModal = false" class="flex-1 py-2.5 bg-slate-100 rounded-lg text-slate-600 font-bold text-xs">
+            取消
+          </button>
+          <button @click="submitLogin" class="flex-1 py-2.5 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 transition">
+            验证并进入
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -326,6 +365,10 @@
 
         const showAddSubModal = ref(false);
         const newSubData = ref({ masterId: '', customer_account: '', customer_name: '', product: '', weight: '' });
+
+        // 登录相关的状态
+        const showLoginModal = ref(false);
+        const loginForm = ref({ username: '', password: '' });
 
         const stepNames = ['接单预审', '航班起飞', '机场落地', '海关申报', '查验放行', '装车配送'];
         const masterWaybills = ref([]);
@@ -398,13 +441,30 @@
 
         const toggleRole = () => {
           if (currentRole.value === 'customer') {
-            currentRole.value = 'admin';
-            currentView.value = 'admin';
+            // 需要登录校验，初始化输入框并弹出登录模态框
+            loginForm.value.username = '';
+            loginForm.value.password = '';
+            showLoginModal.value = true;
           } else {
+            // 已登录，退出到客户查询视图 (安全登出)
             currentRole.value = 'customer';
             currentView.value = 'query';
             activeSub.value = null;
             activeMaster.value = null;
+          }
+        };
+
+        // 操作员登录校验逻辑
+        const submitLogin = () => {
+          const user = loginForm.value.username.trim();
+          const pass = loginForm.value.password;
+          
+          if (user === 'IFT-001' && pass === 'IFT0123456') {
+            currentRole.value = 'admin';
+            currentView.value = 'admin';
+            showLoginModal.value = false;
+          } else {
+            alert('用户名或密码不正确，请重新输入！');
           }
         };
 
@@ -616,6 +676,7 @@
           currentRole, currentView, searchQuery, activeSub, activeMaster, zoomedPhoto,
           masterWaybills, subWaybills, customerConsignments, showEditModal, editingMaster,
           tempFile, uploading, showAddSubModal, newSubData, stepNames,
+          showLoginModal, loginForm, submitLogin, // 暴露新方法和变量到模板
           getStepDescription, getStepName, getMasterWaybill, getSubsForMaster,
           toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
           getTimelineLineHeight, zoomImage, editMasterStatus, setEditingStep,
