@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>柬埔寨小龙虾清关业务进度查询</title>
+  <title>龙虾清关速递 - 拼单查询版</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Vue 3 CDN -->
@@ -109,6 +109,15 @@
           返回列表
         </button>
 
+        <!-- 3a. 额外新增：如果大货已签收，顶部显示业务已完成横幅 -->
+        <div v-if="activeMaster && activeMaster.current_step === 6" class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-center space-x-3 shadow-sm animate-pulse">
+          <span class="text-2xl">🎉</span>
+          <div>
+            <h4 class="font-bold text-sm">本次国际冷链业务已顺利结单</h4>
+            <p class="text-[11px] text-emerald-600 mt-0.5">您的龙虾已被妥投签收，期待与您的下一次合作！</p>
+          </div>
+        </div>
+
         <!-- 顶部核心卡片 -->
         <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-5 text-white shadow-lg">
           <div class="flex justify-between items-start mb-4">
@@ -163,6 +172,11 @@
                   <h5 class="font-bold text-sm" :class="index <= activeMaster.current_step ? 'text-slate-800' : 'text-slate-400'">{{ step.name }}</h5>
                   <span v-if="step.time" class="text-xs text-slate-400 font-mono">{{ step.time }}</span>
                 </div>
+                
+                <!-- 优先显示操作员手动备注，无备注时显示默认模板说明 -->
+                <p class="text-xs font-semibold text-emerald-700 bg-emerald-50/50 p-2 rounded-lg border border-dashed border-emerald-100 mb-1.5" v-if="step.desc && index <= activeMaster.current_step">
+                  💬 实况说明：{{ step.desc }}
+                </p>
                 <p class="text-xs" :class="index <= activeMaster.current_step ? 'text-slate-500' : 'text-slate-300'">{{ getStepDescription(index) }}</p>
 
                 <!-- 照片缩略图 -->
@@ -190,15 +204,21 @@
         </div>
 
         <div class="space-y-4">
-          <div v-for="master in masterWaybills" :key="master.id" class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+          <div v-for="master in masterWaybills" :key="master.id" class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm relative">
+            
             <div class="flex justify-between items-start mb-2">
               <div>
                 <span class="text-xs font-mono font-bold text-slate-400">主单号: {{ master.id }}</span>
                 <h4 class="font-bold text-emerald-800 text-sm">当前状态: {{ getStepName(master.current_step) }}</h4>
               </div>
-              <button @click="editMasterStatus(master)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
-                更新清关进度
-              </button>
+              <div class="flex space-x-2">
+                <button @click="editMasterStatus(master)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
+                  更新进度
+                </button>
+                <button @click="deleteMaster(master.id)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
+                  删除主单 🗑️
+                </button>
+              </div>
             </div>
 
             <div class="mt-3 pt-3 border-t border-slate-100">
@@ -210,10 +230,21 @@
               <div class="space-y-2">
                 <div v-for="sub in getSubsForMaster(master.id)" :key="sub.sub_id" class="bg-slate-50 p-2.5 rounded-lg text-xs flex justify-between items-center">
                   <div>
-                    <div class="font-semibold text-slate-800 font-mono">{{ sub.sub_id }} ({{ sub.customer_account }})</div>
-                    <div class="text-slate-500">{{ sub.customer_name }} - {{ sub.product }}</div>
+                    <div class="font-semibold text-slate-800 font-mono flex items-center space-x-1">
+                      <span>{{ sub.sub_id }}</span>
+                      <span class="text-[10px] bg-slate-200 text-slate-600 px-1 rounded">{{ sub.customer_account }}</span>
+                    </div>
+                    <div class="text-slate-500 mt-0.5">{{ sub.customer_name }} - {{ sub.product }}</div>
                   </div>
-                  <div class="text-right font-bold text-slate-700">{{ sub.weight }} KG</div>
+                  <div class="flex items-center space-x-3">
+                    <div class="text-right font-bold text-slate-700">{{ sub.weight }} KG</div>
+                    <button @click="openEditSubModal(sub)" class="text-blue-600 hover:text-blue-800 font-bold p-1 bg-white border rounded shadow-sm">
+                      修改 ✏️
+                    </button>
+                  </div>
+                </div>
+                <div v-if="getSubsForMaster(master.id).length === 0" class="text-center py-4 text-slate-400 text-xs">
+                  暂无拼箱客户货物，请点击上方关联。
                 </div>
               </div>
             </div>
@@ -223,7 +254,7 @@
 
     </main>
 
-    <!-- 5. 管理端：更新主单进度模态框 -->
+    <!-- 5. 管理端：更新主单进度及手动文字备注模态框 -->
     <div v-if="showEditModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
       <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
@@ -245,7 +276,17 @@
             </div>
           </div>
 
-          <!-- 拍照上传（调取手机摄像头，并上传至 Supabase Storage） -->
+          <!-- 新增：手动文字备注输入框 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">本次状态说明文字（客户可同步看见，选填）</label>
+            <textarea 
+              v-model="editingMaster.steps[editingMaster.current_step].desc" 
+              placeholder="例如：小龙虾清关已放行，车辆正在驶出机场仓库..."
+              class="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none min-h-[70px] font-sans"
+            ></textarea>
+          </div>
+
+          <!-- 拍照上传 -->
           <div>
             <label class="block text-xs font-bold text-slate-400 mb-2">现场拍照（调用摄像头）</label>
             <div class="flex items-center space-x-3">
@@ -267,17 +308,50 @@
 
     <!-- 6. 模态框：添加新拼舱客户 -->
     <div v-if="showAddSubModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
         <h3 class="font-bold text-lg text-slate-800 border-b pb-2">关联客户货物到主单</h3>
         <div class="space-y-3 text-xs">
-          <input type="text" v-model="newSubData.customer_account" placeholder="客户登录账号 (如: CUST-ALEX)" class="w-full p-2 rounded border">
-          <input type="text" v-model="newSubData.customer_name" placeholder="客户简称 (如: 金边万客隆)" class="w-full p-2 rounded border">
-          <input type="text" v-model="newSubData.product" placeholder="特定货物 (如: 中号蓝龙虾)" class="w-full p-2 rounded border">
-          <input type="number" v-model="newSubData.weight" placeholder="分配重量 (KG)" class="w-full p-2 rounded border">
+          <input type="text" v-model="newSubData.customer_account" placeholder="客户登录账号 (如: CUST-ALEX)" class="w-full p-2.5 rounded border">
+          <input type="text" v-model="newSubData.customer_name" placeholder="客户简称 (如: 金边万客隆)" class="w-full p-2.5 rounded border">
+          <input type="text" v-model="newSubData.product" placeholder="特定货物 (如: 中号蓝龙虾)" class="w-full p-2.5 rounded border">
+          <input type="number" v-model="newSubData.weight" placeholder="分配重量 (KG)" class="w-full p-2.5 rounded border">
         </div>
         <div class="flex space-x-2 pt-2">
           <button @click="showAddSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 font-bold text-xs">取消</button>
           <button @click="saveNewSub" class="flex-1 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs">保存关联</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. 模态框：修改已关联的客户货物数据 -->
+    <div v-if="showEditSubModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
+        <h3 class="font-bold text-lg text-slate-800 border-b pb-2">修改拼箱客户数据</h3>
+        <div class="space-y-3 text-xs" v-if="editingSubData">
+          <div>
+            <label class="block text-slate-500 mb-1">拼单 ID（只读）</label>
+            <input type="text" v-model="editingSubData.sub_id" disabled class="w-full p-2.5 rounded border bg-slate-50 text-slate-400 font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">客户登录账号</label>
+            <input type="text" v-model="editingSubData.customer_account" class="w-full p-2.5 rounded border">
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">客户简称</label>
+            <input type="text" v-model="editingSubData.customer_name" class="w-full p-2.5 rounded border">
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">特定货物</label>
+            <input type="text" v-model="editingSubData.product" class="w-full p-2.5 rounded border">
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">分配重量 (KG)</label>
+            <input type="number" v-model="editingSubData.weight" class="w-full p-2.5 rounded border">
+          </div>
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button @click="showEditSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 font-bold text-xs">取消</button>
+          <button @click="saveEditedSub" class="flex-1 py-2 bg-emerald-600 text-white rounded-lg font-bold text-xs">保存修改</button>
         </div>
       </div>
     </div>
@@ -366,11 +440,15 @@
         const showAddSubModal = ref(false);
         const newSubData = ref({ masterId: '', customer_account: '', customer_name: '', product: '', weight: '' });
 
-        // 登录相关的状态
+        // 登录和编辑客户数据相关的状态
         const showLoginModal = ref(false);
         const loginForm = ref({ username: '', password: '' });
+        
+        const showEditSubModal = ref(false);
+        const editingSubData = ref(null);
 
-        const stepNames = ['接单预审', '航班起飞', '机场落地', '海关申报', '查验放行', '装车配送'];
+        // 升级后一共拥有 7 个步骤 (索引从 0 至 6)
+        const stepNames = ['接单预审', '航班起飞', '机场落地', '海关申报', '查验放行', '装车配送', '客户签收'];
         const masterWaybills = ref([]);
         const subWaybills = ref([]);
         const customerConsignments = ref([]);
@@ -382,12 +460,13 @@
                 id: 'KH20260601',
                 current_step: 2,
                 steps: [
-                  { name: '接单预审', time: '2026-06-01 08:30', photo: '' },
-                  { name: '航班起飞', time: '2026-06-01 11:20', photo: '' },
-                  { name: '机场落地', time: '2026-06-01 13:45', photo: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&q=80' },
-                  { name: '海关申报', time: '', photo: '' },
-                  { name: '查验放行', time: '', photo: '' },
-                  { name: '装车配送', time: '', photo: '' }
+                  { name: stepNames[0], time: '2026-06-01 08:30', photo: '', desc: '' },
+                  { name: stepNames[1], time: '2026-06-01 11:20', photo: '', desc: '' },
+                  { name: stepNames[2], time: '2026-06-01 13:45', photo: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&q=80', desc: '' },
+                  { name: stepNames[3], time: '', photo: '', desc: '' },
+                  { name: stepNames[4], time: '', photo: '', desc: '' },
+                  { name: stepNames[5], time: '', photo: '', desc: '' },
+                  { name: stepNames[6], time: '', photo: '', desc: '' }
                 ]
               }
             ];
@@ -430,7 +509,8 @@
             '航班顺利落地金边。我司现场人员已在机舱门对接接收货物。',
             '报关单及进境允许证书已提交给柬埔寨海关，走绿色通道审核中。',
             '海关现场查验无误下达放行指令，小龙虾装运出区。',
-            '已装入我司冷藏车，正在向您指定的金边/西港地址全速送达。'
+            '已装入我司冷藏车，正在向您指定的金边/西港地址全速送达。',
+            '货物已安全送达客户手中并完成现场签收，本次物流清关保障业务顺利结单。'
           ];
           return desc[index];
         };
@@ -441,12 +521,10 @@
 
         const toggleRole = () => {
           if (currentRole.value === 'customer') {
-            // 需要登录校验，初始化输入框并弹出登录模态框
             loginForm.value.username = '';
             loginForm.value.password = '';
             showLoginModal.value = true;
           } else {
-            // 已登录，退出到客户查询视图 (安全登出)
             currentRole.value = 'customer';
             currentView.value = 'query';
             activeSub.value = null;
@@ -454,7 +532,6 @@
           }
         };
 
-        // 操作员登录校验逻辑
         const submitLogin = () => {
           const user = loginForm.value.username.trim();
           const pass = loginForm.value.password;
@@ -509,7 +586,7 @@
 
         const goBackToQuery = () => currentView.value = 'query';
         const goBackToList = () => customerConsignments.value.length > 1 ? currentView.value = 'my-consignments' : currentView.value = 'query';
-        const getTimelineLineHeight = () => activeMaster.value ? `${(activeMaster.value.current_step / 5) * 100}%` : '0%';
+        const getTimelineLineHeight = () => activeMaster.value ? `${(activeMaster.value.current_step / 6) * 100}%` : '0%';
         const zoomImage = (url) => zoomedPhoto.value = url;
 
         const editMasterStatus = (master) => {
@@ -530,21 +607,6 @@
         const saveMasterStatus = async () => {
           const target = masterWaybills.value.find(m => m.id === editingMaster.value.id);
           if (!target) return;
-
-          if (!supabaseClient) {
-            alert('本地Mock模式：更新保存成功（内存刷新）');
-            const targetStepIdx = editingMaster.value.current_step;
-            const nowStr = new Date().toISOString().substring(11, 16);
-            for (let i = 0; i <= targetStepIdx; i++) {
-              if (!editingMaster.value.steps[i].time) {
-                editingMaster.value.steps[i].time = 'Today ' + nowStr;
-              }
-            }
-            target.current_step = targetStepIdx;
-            target.steps = editingMaster.value.steps;
-            showEditModal.value = false;
-            return;
-          }
 
           uploading.value = true;
           let photoUrl = target.steps[editingMaster.value.current_step]?.photo || '';
@@ -571,6 +633,8 @@
           }
 
           const nowStr = new Date().toISOString().split('T').join(' ').substring(0, 16);
+          
+          // 记录或保留各步骤的对应时间与说明内容
           for (let i = 0; i <= editingMaster.value.current_step; i++) {
             if (!editingMaster.value.steps[i].time) {
               editingMaster.value.steps[i].time = nowStr;
@@ -578,6 +642,15 @@
           }
 
           editingMaster.value.steps[editingMaster.value.current_step].photo = photoUrl;
+
+          if (!supabaseClient) {
+            target.current_step = editingMaster.value.current_step;
+            target.steps = editingMaster.value.steps;
+            showEditModal.value = false;
+            uploading.value = false;
+            alert('本地Mock模式：更新进度成功！');
+            return;
+          }
 
           const { error: dbError } = await supabaseClient
             .from('master_waybills')
@@ -597,15 +670,44 @@
           }
         };
 
+        // 新增：删除主航次运单功能
+        const deleteMaster = async (masterId) => {
+          if (!confirm('💥 警告：确定要删除主单 ' + masterId + ' 吗？\n删除后该主单，以及该班次下挂载的所有拼箱客户单都将被全部同步删除，且无法恢复！')) {
+            return;
+          }
+
+          if (!supabaseClient) {
+            masterWaybills.value = masterWaybills.value.filter(m => m.id !== masterId);
+            subWaybills.value = subWaybills.value.filter(s => s.master_id !== masterId);
+            alert('本地Mock模式：主单已清空。');
+            return;
+          }
+
+          try {
+            const { error } = await supabaseClient.from('master_waybills').delete().eq('id', masterId);
+            if (error) {
+              alert('删除主单失败: ' + error.message);
+            } else {
+              alert('主单及其关联的所有拼箱数据已彻底删除！');
+              loadDataFromSupabase();
+            }
+          } catch (e) {
+            console.error(e);
+            alert('删除时遇到系统错误。');
+          }
+        };
+
         const openAddMasterModal = async () => {
           const newId = 'KH' + new Date().toISOString().substring(2,10).split('-').join('') + Math.floor(Math.random()*100).toString().padStart(2, '0');
           const newMaster = {
             id: newId,
             current_step: 0,
+            // 默认创建7个节点的进度说明对象
             steps: stepNames.map((name, i) => ({
               name,
               time: i === 0 ? new Date().toISOString().split('T').join(' ').substring(0, 16) : '',
-              photo: ''
+              photo: '',
+              desc: ''
             }))
           };
 
@@ -668,6 +770,53 @@
           }
         };
 
+        // 新增：打开修改客户拼箱数据窗口
+        const openEditSubModal = (sub) => {
+          editingSubData.value = JSON.parse(JSON.stringify(sub));
+          showEditSubModal.value = true;
+        };
+
+        // 新增：保存修改后的客户拼箱数据
+        const saveEditedSub = async () => {
+          const d = editingSubData.value;
+          if (!d.customer_account || !d.customer_name || !d.weight) {
+            return alert('请勿留下空白项');
+          }
+
+          if (!supabaseClient) {
+            const index = subWaybills.value.findIndex(s => s.sub_id === d.sub_id);
+            if (index !== -1) {
+              subWaybills.value[index] = d;
+            }
+            showEditSubModal.value = false;
+            alert('本地Mock模式：修改成功');
+            return;
+          }
+
+          try {
+            const { error } = await supabaseClient
+              .from('sub_waybills')
+              .update({
+                customer_account: d.customer_account.trim().toUpperCase(),
+                customer_name: d.customer_name,
+                product: d.product,
+                weight: parseFloat(d.weight)
+              })
+              .eq('sub_id', d.sub_id);
+
+            if (error) {
+              alert('修改失败: ' + error.message);
+            } else {
+              alert('拼单数据修改并保存成功！');
+              showEditSubModal.value = false;
+              loadDataFromSupabase();
+            }
+          } catch (e) {
+            console.error(e);
+            alert('保存数据时发生未知错误。');
+          }
+        };
+
         onMounted(() => {
           loadDataFromSupabase();
         });
@@ -676,7 +825,8 @@
           currentRole, currentView, searchQuery, activeSub, activeMaster, zoomedPhoto,
           masterWaybills, subWaybills, customerConsignments, showEditModal, editingMaster,
           tempFile, uploading, showAddSubModal, newSubData, stepNames,
-          showLoginModal, loginForm, submitLogin, // 暴露新方法和变量到模板
+          showLoginModal, loginForm, submitLogin, 
+          showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster, // 新增导出变量与函数
           getStepDescription, getStepName, getMasterWaybill, getSubsForMaster,
           toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
           getTimelineLineHeight, zoomImage, editMasterStatus, setEditingStep,
