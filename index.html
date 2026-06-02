@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>龙虾清关速递 - 拼单查询版</title>
+  <title>柬埔寨小龙虾进口清关进度查询</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Vue 3 CDN -->
@@ -25,7 +25,7 @@
     <header class="bg-emerald-600 text-white px-4 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
       <div class="flex items-center space-x-2">
         <span class="text-xl">🦞</span>
-        <h1 class="font-bold text-lg tracking-wider">龙虾清关工作台</h1>
+        <h1 class="font-bold text-lg tracking-wider">小龙虾清关进度查询</h1>
       </div>
       <button @click="toggleRole" class="text-xs bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 rounded-full border border-emerald-500 transition">
         切换到: {{ currentRole === 'customer' ? '操作员端' : '客户查询' }}
@@ -44,7 +44,7 @@
             </svg>
           </div>
           <h2 class="text-2xl font-black text-slate-800">专属清关查询</h2>
-          <p class="text-slate-500 text-sm mt-1">输入您的客户账号，查询您名下的专属龙虾清关动态</p>
+          <p class="text-slate-500 text-sm mt-1">输入您的客户账号，查询您名下的专属小龙虾清关动态</p>
         </div>
 
         <div class="space-y-4">
@@ -121,7 +121,7 @@
           <span class="text-2xl">🎉</span>
           <div>
             <h4 class="font-bold text-sm">本次冷链派送业务已顺利结单</h4>
-            <p class="text-[11px] text-emerald-600 mt-0.5">您的龙虾已被您妥投签收，期待下次合作！</p>
+            <p class="text-[11px] text-emerald-600 mt-0.5">您的小龙虾已被妥投签收，期待下次合作！</p>
           </div>
         </div>
 
@@ -544,12 +544,12 @@
 
         const getStepDescription = (index) => {
           const desc = [
-            '货代清关员已完成前置资料审核，龙虾温控符合空运安全要求。',
-            '航班起飞，已进入冷链保鲜仓（冷气全程不间断）。',
-            '航班顺利落地金边。我司现场人员已在机舱门对接接收货物。',
-            '报关单及进境允许证书已提交给柬埔寨海关，走绿色通道审核中。',
-            '海关现场查验无误下达放行指令，小龙虾装运出区。',
-            '已装入我司冷藏车，正在向您指定的金边/西港地址全速送达。',
+            '货代清关员已完成前置资料审核，您的货物已经送达集货仓。',
+            '航班已起飞，您的货物正在运抵柬埔寨-达克茂机场。',
+            '航班顺利落地金边-达克茂机场。我司现场人员已在等待接收货物。',
+            '报关单及进口证书已提交给柬埔寨海关，正在走绿色通道审核中。',
+            '海关现场查验无误已下达放行指令，您的小龙虾正在装运出机场库区。',
+            '已装入我司专车，正在向您指定的金边/西港地址全速送达，请等待收货。',
             '货物已安全送达客户手中并完成现场签收，本次物流清关保障业务顺利结单。'
           ];
           return desc[index];
