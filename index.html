@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>龙虾清关速递 - 拼单查询版</title>
+  <title>柬埔寨小龙虾清关业务进度查询</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Vue 3 CDN -->
@@ -293,9 +293,8 @@
     const { createApp, ref, onMounted } = Vue;
 
     // ==================== 🛠 仔细填入您的 SUPABASE 凭证 ====================
-    const SUPABASE_URL = 'https://gowbjykkfsqsybddvbyu.supabase.co/rest/v1/'; // 示例：'https://xxxx.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdvd2JqeWtrZnNxc3liZGR2Ynl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODQ1NDQsImV4cCI6MjA5NTk2MDU0NH0.VcsrlWfKUPG2eCbKle0ckL68xw4EgiIImj-JW6CE6Kc
-'; // 示例：'eyJhbGciOiJIUzI1Ni...'
+    const SUPABASE_URL = 'https://gowbjykkfsqsybddvbyu.supabase.co'; // 示例：'https://xxxx.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdvd2JqeWtrZnNxc3liZGR2Ynl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODQ1NDQsImV4cCI6MjA5NTk2MDU0NH0.VcsrlWfKUPG2eCbKle0ckL68xw4EgiIImj-JW6CE6Kc'; // 示例：'eyJhbGciOiJIUzI1Ni...'
     // ===================================================================
 
     let supabaseClient = null;
