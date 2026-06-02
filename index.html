@@ -81,7 +81,7 @@
         </div>
 
         <div class="space-y-3">
-          <!-- 这里循环拼箱单列表。完结单自动附加灰色背景与完结状态 -->
+          <!-- 拼箱单列表（在途置顶，已完结置底并附灰色底纹） -->
           <div 
             v-for="sub in customerConsignments" 
             :key="sub.sub_id"
@@ -116,7 +116,7 @@
           返回列表
         </button>
 
-        <!-- 如果该客户的分箱已被妥投签收，顶部显示结单勋章横幅 -->
+        <!-- 完结单顶部横幅 -->
         <div v-if="activeSub.current_step === 6" class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-center space-x-3 shadow-sm animate-pulse">
           <span class="text-2xl">🎉</span>
           <div>
@@ -150,7 +150,7 @@
           </div>
         </div>
 
-        <!-- 客户专属派送清关时间轴（已下放到子单本身） -->
+        <!-- 客户专属派送清关时间轴 -->
         <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
           <h4 class="font-bold text-slate-800 mb-6 flex items-center">
             <span class="w-1.5 h-4 bg-emerald-600 rounded-full mr-2"></span>
@@ -244,7 +244,7 @@
                   <div class="flex items-center space-x-2">
                     <div class="text-right font-bold text-slate-700 mr-2">{{ sub.weight }} KG</div>
                     
-                    <!-- 更新进度已经转移到子单行内，以实现各客户独立派送时间轴 -->
+                    <!-- 拼舱分单独立更新进度 -->
                     <button @click="editSubProgress(sub)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2 py-1.5 rounded transition">
                       更新进度
                     </button>
@@ -889,8 +889,8 @@
           showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster, 
           getStepDescription, getStepName, getMasterWaybill, getSubsForMaster,
           toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
-          getTimelineLineHeight, zoomImage, editMasterStatus, setEditingStep,
-          onPhotoSelected, saveMasterStatus, addSubToMaster, saveNewSub, openAddMasterModal
+          getTimelineLineHeight, zoomImage, setEditingStep,
+          onPhotoSelected, addSubToMaster, saveNewSub, openAddMasterModal
         };
       }
     }).mount('#app');
