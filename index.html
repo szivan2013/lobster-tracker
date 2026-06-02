@@ -8,18 +8,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Vue 3 CDN -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body {
-      -webkit-tap-highlight-color: transparent;
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-    .pulse-animation {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: .5; transform: scale(1.15); }
-    }
+    body { -webkit-tap-highlight-color: transparent; padding-bottom: env(safe-area-inset-bottom); }
+    .pulse-animation { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(1.15); } }
     [v-cloak] { display: none; }
   </style>
 </head>
@@ -41,7 +35,7 @@
     <!-- 主体内容区域 -->
     <main class="flex-1 flex flex-col p-4 overflow-y-auto">
 
-      <!-- ==================== 1. 客户：登录/查询页 ==================== -->
+      <!-- 1. 客户：登录/查询页 -->
       <div v-if="currentView === 'query'" class="flex-1 flex flex-col justify-center py-6">
         <div class="text-center mb-8">
           <div class="inline-flex p-4 bg-emerald-50 rounded-full text-emerald-600 mb-3">
@@ -72,19 +66,9 @@
             查询我的货物
           </button>
         </div>
-
-        <!-- 演示账号提示 -->
-        <div class="mt-8 p-3 bg-amber-50 rounded-lg border border-amber-100 text-xs text-amber-800">
-          <p class="font-bold mb-1">💡 拼单演示账号：</p>
-          <p class="mb-1">主单号 <span class="font-bold">KH20260601</span> 下包含了以下两个客户的货物：</p>
-          <ul class="list-disc list-inside space-y-0.5 mt-1 font-mono">
-            <li>客户A账号: <span class="font-bold select-all bg-amber-100 px-1">CUST-ALEX</span> (货重 45 kg)</li>
-            <li>客户B账号: <span class="font-bold select-all bg-amber-100 px-1">CUST-SOPHIA</span> (货重 75 kg)</li>
-          </ul>
-        </div>
       </div>
 
-      <!-- ==================== 2. 客户：我的货物列表（当同一账号有多批货时） ==================== -->
+      <!-- 2. 客户：我的货物列表 -->
       <div v-if="currentView === 'my-consignments'" class="space-y-4 animate-fade-in">
         <button @click="goBackToQuery" class="inline-flex items-center text-sm text-slate-500 hover:text-emerald-600">
           <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -99,44 +83,42 @@
         <div class="space-y-3">
           <div 
             v-for="sub in customerConsignments" 
-            :key="sub.subId"
+            :key="sub.sub_id"
             @click="viewDetail(sub)"
             class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm hover:border-emerald-500 cursor-pointer transition flex justify-between items-center"
           >
             <div>
-              <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">子单号: {{ sub.subId }}</span>
+              <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">分单号: {{ sub.sub_id }}</span>
               <h4 class="font-bold text-slate-800 mt-1.5">🦞 {{ sub.product }}</h4>
-              <p class="text-xs text-slate-400 mt-1">关联主单航次: {{ sub.masterId }}</p>
+              <p class="text-xs text-slate-400 mt-1">关联主单航次: {{ sub.master_id }}</p>
             </div>
             <div class="text-right">
               <span class="text-emerald-600 font-bold text-lg font-mono">{{ sub.weight }}</span> <span class="text-xs text-slate-500">KG</span>
               <div class="text-xs text-emerald-500 font-bold mt-1">
-                {{ getStepName(getMasterWaybill(sub.masterId).currentStep) }}
+                {{ getStepName(getMasterWaybill(sub.master_id)?.current_step) }}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ==================== 3. 客户：拼单详情页 ==================== -->
+      <!-- 3. 客户：拼单详情页 -->
       <div v-if="currentView === 'detail' && activeSub" class="space-y-5 animate-fade-in">
-        
-        <!-- 返回 -->
         <button @click="goBackToList" class="inline-flex items-center text-sm text-slate-500 hover:text-emerald-600 transition">
           <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           返回列表
         </button>
 
-        <!-- 顶部核心卡片：只显示属于该客户的货量 -->
+        <!-- 顶部核心卡片 -->
         <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-5 text-white shadow-lg">
           <div class="flex justify-between items-start mb-4">
             <div>
               <p class="text-emerald-100 text-xs">分单号 / 客户</p>
-              <h3 class="text-lg font-mono font-bold tracking-wider">{{ activeSub.subId }}</h3>
-              <p class="text-xs text-emerald-200 mt-0.5">客户：{{ activeSub.customerName }}</p>
+              <h3 class="text-lg font-mono font-bold tracking-wider">{{ activeSub.sub_id }}</h3>
+              <p class="text-xs text-emerald-200 mt-0.5">客户：{{ activeSub.customer_name }}</p>
             </div>
             <span class="px-2.5 py-1 bg-emerald-500 bg-opacity-30 rounded-full text-xs font-bold border border-emerald-400">
-              {{ getStepName(activeMaster.currentStep) }}
+              {{ getStepName(activeMaster?.current_step) }}
             </span>
           </div>
           
@@ -150,13 +132,10 @@
               <p class="font-semibold text-lg font-mono">{{ activeSub.weight }} KG</p>
             </div>
           </div>
-          <div class="mt-3 pt-3 border-t border-emerald-500 border-opacity-30 text-[11px] text-emerald-200">
-            ℹ️ 该货正放入主航次 <span class="font-mono font-semibold">{{ activeSub.masterId }}</span> 合并申报清关
-          </div>
         </div>
 
-        <!-- 中间：大货主单的通用清关时间轴 -->
-        <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+        <!-- 时间轴 -->
+        <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm" v-if="activeMaster">
           <h4 class="font-bold text-slate-800 mb-6 flex items-center">
             <span class="w-1.5 h-4 bg-emerald-600 rounded-full mr-2"></span>
             空运主单清关进度 (主单: {{ activeMaster.id }})
@@ -164,22 +143,14 @@
 
           <div class="relative pl-6 space-y-8">
             <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100 z-0"></div>
-            <div 
-              class="absolute left-[11px] top-2 w-0.5 bg-emerald-500 transition-all duration-500 z-0"
-              :style="{ height: getTimelineLineHeight() }"
-            ></div>
+            <div class="absolute left-[11px] top-2 w-0.5 bg-emerald-500 transition-all duration-500 z-0" :style="{ height: getTimelineLineHeight() }"></div>
 
-            <div 
-              v-for="(step, index) in activeMaster.steps" 
-              :key="index"
-              class="relative flex items-start space-x-4"
-            >
-              <!-- 节点圆圈 -->
+            <div v-for="(step, index) in activeMaster.steps" :key="index" class="relative flex items-start space-x-4">
               <div class="absolute -left-[20px] z-10">
-                <div v-if="index < activeMaster.currentStep" class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm">
+                <div v-if="index < activeMaster.current_step" class="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 </div>
-                <div v-else-if="index === activeMaster.currentStep" class="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-md ring-4 ring-emerald-100 pulse-animation">
+                <div v-else-if="index === activeMaster.current_step" class="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-md ring-4 ring-emerald-100 pulse-animation">
                   <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
                 </div>
                 <div v-else class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-400">
@@ -187,23 +158,17 @@
                 </div>
               </div>
 
-              <!-- 节点文本 -->
               <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-center mb-1">
-                  <h5 class="font-bold text-sm" :class="index <= activeMaster.currentStep ? 'text-slate-800' : 'text-slate-400'">
-                    {{ step.name }}
-                  </h5>
+                  <h5 class="font-bold text-sm" :class="index <= activeMaster.current_step ? 'text-slate-800' : 'text-slate-400'">{{ step.name }}</h5>
                   <span v-if="step.time" class="text-xs text-slate-400 font-mono">{{ step.time }}</span>
                 </div>
-                <p class="text-xs" :class="index <= activeMaster.currentStep ? 'text-slate-500' : 'text-slate-300'">
-                  {{ getStepDescription(index) }}
-                </p>
+                <p class="text-xs" :class="index <= activeMaster.current_step ? 'text-slate-500' : 'text-slate-300'">{{ getStepDescription(index) }}</p>
 
-                <!-- 现场回传照片 -->
-                <div v-if="step.photo && index <= activeMaster.currentStep" class="mt-2.5">
+                <!-- 照片缩略图 -->
+                <div v-if="step.photo && index <= activeMaster.current_step" class="mt-2.5">
                   <div class="inline-block relative rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shadow-sm cursor-pointer" @click="zoomImage(step.photo)">
                     <img :src="step.photo" alt="现场照片" class="h-20 w-36 object-cover hover:opacity-90 transition">
-                    <div class="absolute bottom-1 right-1 bg-black bg-opacity-60 text-[10px] text-white px-1.5 py-0.5 rounded">点击查看</div>
                   </div>
                 </div>
               </div>
@@ -212,7 +177,7 @@
         </div>
       </div>
 
-      <!-- ==================== 4. 后台管理：操作员工作台 ==================== -->
+      <!-- 4. 后台管理：操作员工作台 -->
       <div v-if="currentView === 'admin'" class="space-y-4 animate-fade-in">
         <div class="flex justify-between items-center mb-2">
           <div>
@@ -224,143 +189,91 @@
           </button>
         </div>
 
-        <!-- 主航次列表 -->
         <div class="space-y-4">
-          <div 
-            v-for="master in masterWaybills" 
-            :key="master.id"
-            class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm"
-          >
+          <div v-for="master in masterWaybills" :key="master.id" class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
             <div class="flex justify-between items-start mb-2">
               <div>
-                <span class="text-xs font-mono font-bold text-slate-400">主运单号: {{ master.id }}</span>
-                <h4 class="font-bold text-emerald-800 text-sm">当前状态: {{ getStepName(master.currentStep) }}</h4>
+                <span class="text-xs font-mono font-bold text-slate-400">主单号: {{ master.id }}</span>
+                <h4 class="font-bold text-emerald-800 text-sm">当前状态: {{ getStepName(master.current_step) }}</h4>
               </div>
-              <button 
-                @click="editMasterStatus(master)" 
-                class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition"
-              >
+              <button @click="editMasterStatus(master)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
                 更新清关进度
               </button>
             </div>
 
-            <!-- 当前主单下的客户分单列表 -->
             <div class="mt-3 pt-3 border-t border-slate-100">
               <div class="flex justify-between items-center mb-2">
-                <span class="text-xs font-bold text-slate-500">关联客户分箱货量 (拼舱明细)：</span>
-                <button @click="addSubToMaster(master.id)" class="text-[10px] text-emerald-600 hover:underline font-bold">+ 关联新客户货物</button>
+                <span class="text-xs font-bold text-slate-500">关联客户拼舱货量：</span>
+                <button @click="addSubToMaster(master.id)" class="text-[10px] text-emerald-600 hover:underline font-bold">+ 关联新客户</button>
               </div>
               
               <div class="space-y-2">
-                <div 
-                  v-for="sub in getSubsForMaster(master.id)" 
-                  :key="sub.subId"
-                  class="bg-slate-50 p-2.5 rounded-lg text-xs flex justify-between items-center"
-                >
+                <div v-for="sub in getSubsForMaster(master.id)" :key="sub.sub_id" class="bg-slate-50 p-2.5 rounded-lg text-xs flex justify-between items-center">
                   <div>
-                    <div class="font-semibold text-slate-800 font-mono">{{ sub.subId }} ({{ sub.customerAccount }})</div>
-                    <div class="text-slate-500">{{ sub.customerName }} - {{ sub.product }}</div>
+                    <div class="font-semibold text-slate-800 font-mono">{{ sub.sub_id }} ({{ sub.customer_account }})</div>
+                    <div class="text-slate-500">{{ sub.customer_name }} - {{ sub.product }}</div>
                   </div>
-                  <div class="text-right font-bold text-slate-700">
-                    {{ sub.weight }} KG
-                  </div>
-                </div>
-                <div v-if="getSubsForMaster(master.id).length === 0" class="text-xs text-slate-400 text-center py-2">
-                  暂无关联拼箱货，点击上方可添加。
+                  <div class="text-right font-bold text-slate-700">{{ sub.weight }} KG</div>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>
 
     </main>
 
-    <!-- ==================== 5. 管理端：更新主单进度模态框 ==================== -->
+    <!-- 5. 管理端：更新主单进度模态框 -->
     <div v-if="showEditModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
       <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
           <h3 class="font-bold text-lg text-slate-800">主单进度一键变更</h3>
-          <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
+          <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
         </div>
 
         <div v-if="editingMaster" class="space-y-4">
-          <div class="bg-slate-50 p-3 rounded-lg text-xs">
-            <div>主单编号: <span class="font-bold font-mono">{{ editingMaster.id }}</span></div>
-            <p class="text-slate-500 mt-1">更新此状态将同步影响该主单下的所有拼舱客户。</p>
-          </div>
-
-          <!-- 状态选择 -->
           <div>
             <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">选择当前最新清关阶段</label>
             <div class="grid grid-cols-2 gap-2">
               <button 
-                v-for="(stepName, idx) in stepNames" 
-                :key="idx"
-                @click="setEditingStep(idx)"
-                type="button"
+                v-for="(stepName, idx) in stepNames" :key="idx" @click="setEditingStep(idx)" type="button"
                 class="p-2.5 rounded-lg border text-left text-xs font-semibold flex items-center justify-between transition"
-                :class="editingMaster.currentStep === idx ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-200' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                :class="editingMaster.current_step === idx ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-200' : 'border-slate-200 bg-white text-slate-600'"
               >
                 <span>{{ idx + 1 }}. {{ stepName }}</span>
-                <span v-if="editingMaster.currentStep === idx" class="text-emerald-600">●</span>
               </button>
             </div>
           </div>
 
-          <!-- 拍照上传 -->
+          <!-- 拍照上传（调取手机摄像头，并上传至 Supabase Storage） -->
           <div>
-            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">现场海关实况拍照</label>
+            <label class="block text-xs font-bold text-slate-400 mb-2">现场拍照（调用摄像头）</label>
             <div class="flex items-center space-x-3">
-              <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 border-2 border-dashed border-slate-300 hover:border-emerald-400 rounded-xl w-24 h-24 flex flex-col justify-center items-center text-slate-500 transition relative overflow-hidden">
-                <input type="file" accept="image/*" capture="environment" @change="handlePhotoUpload" class="hidden">
-                <div v-if="!tempPhoto" class="text-center p-2">
-                  <svg class="w-6 h-6 mx-auto mb-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
-                  <span class="text-[10px]">点击拍摄</span>
-                </div>
-                <img v-else :src="tempPhoto" class="w-full h-full object-cover">
+              <label class="cursor-pointer bg-slate-100 border-2 border-dashed rounded-xl w-24 h-24 flex flex-col justify-center items-center text-slate-500 relative overflow-hidden">
+                <input type="file" accept="image/*" capture="environment" @change="onPhotoSelected" class="hidden">
+                <span v-if="!tempFile" class="text-[10px]">点击拍摄</span>
+                <span v-else class="text-[10px] text-emerald-600">已选好照片</span>
               </label>
-              <div class="flex-1 text-xs text-slate-400">
-                <p>在机场、海关查验现场用手机拍照，图片将自动压缩关联到此节点。</p>
-              </div>
+              <span v-if="uploading" class="text-xs text-amber-500">正在上传至云存储...</span>
             </div>
           </div>
 
-          <button @click="saveMasterStatus" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition">
+          <button @click="saveMasterStatus" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md">
             同步更新进度
           </button>
         </div>
       </div>
     </div>
 
-    <!-- ==================== 6. 模态框：添加新拼舱客户货物 ==================== -->
-    <div v-if="showAddSubModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <!-- 6. 模态框：添加新拼舱客户 -->
+    <div v-if="showAddSubModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4">
         <h3 class="font-bold text-lg text-slate-800 border-b pb-2">关联客户货物到主单</h3>
         <div class="space-y-3 text-xs">
-          <div>
-            <label class="block text-slate-500 mb-1">主单号</label>
-            <input type="text" v-model="newSubData.masterId" disabled class="w-full p-2 bg-slate-100 rounded border border-slate-200">
-          </div>
-          <div>
-            <label class="block text-slate-500 mb-1">客户登录账号 (如 CUST-TOM)</label>
-            <input type="text" v-model="newSubData.customerAccount" placeholder="例如: CUST-TOM" class="w-full p-2 rounded border border-slate-200">
-          </div>
-          <div>
-            <label class="block text-slate-500 mb-1">客户简称 (如 华商商超)</label>
-            <input type="text" v-model="newSubData.customerName" placeholder="例如: 华商商超" class="w-full p-2 rounded border border-slate-200">
-          </div>
-          <div>
-            <label class="block text-slate-500 mb-1">客户特定货物名称</label>
-            <input type="text" v-model="newSubData.product" placeholder="例如: 金边鲜活小龙虾 (中号)" class="w-full p-2 rounded border border-slate-200">
-          </div>
-          <div>
-            <label class="block text-slate-500 mb-1">分配重量 (KG)</label>
-            <input type="number" v-model="newSubData.weight" placeholder="例如: 50" class="w-full p-2 rounded border border-slate-200">
-          </div>
+          <input type="text" v-model="newSubData.customer_account" placeholder="客户登录账号 (如: CUST-ALEX)" class="w-full p-2 rounded border">
+          <input type="text" v-model="newSubData.customer_name" placeholder="客户简称 (如: 金边万客隆)" class="w-full p-2 rounded border">
+          <input type="text" v-model="newSubData.product" placeholder="特定货物 (如: 中号蓝龙虾)" class="w-full p-2 rounded border">
+          <input type="number" v-model="newSubData.weight" placeholder="分配重量 (KG)" class="w-full p-2 rounded border">
         </div>
         <div class="flex space-x-2 pt-2">
           <button @click="showAddSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 font-bold text-xs">取消</button>
@@ -369,11 +282,9 @@
       </div>
     </div>
 
-    <!-- ==================== 7. 模态框：大图预览 ==================== -->
+    <!-- 7. 大图预览 -->
     <div v-if="zoomedPhoto" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" @click="zoomedPhoto = null">
-      <div class="relative max-w-full max-h-full">
-        <img :src="zoomedPhoto" class="max-w-full max-h-[85vh] rounded-lg object-contain">
-      </div>
+      <img :src="zoomedPhoto" class="max-w-full max-h-[85vh] rounded-lg object-contain">
     </div>
 
   </div>
@@ -381,105 +292,67 @@
   <script>
     const { createApp, ref, onMounted } = Vue;
 
+    // ==================== 🛠 配置你的 SUPABASE 凭证 ====================
+    const SUPABASE_URL = 'https://gowbjykkfsqsybddvbyu.supabase.co/rest/v1/'; // 替换为你的 Supabase URL
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdvd2JqeWtrZnNxc3liZGR2Ynl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODQ1NDQsImV4cCI6MjA5NTk2MDU0NH0.VcsrlWfKUPG2eCbKle0ckL68xw4EgiIImj-JW6CE6Kc
+'; // 替换为你的 Supabase anon key
+    // ===================================================================
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
     createApp({
       setup() {
-        const currentRole = ref('customer'); // customer 客户 / admin 操作员
-        const currentView = ref('query'); // query / my-consignments / detail / admin
+        const currentRole = ref('customer');
+        const currentView = ref('query');
         const searchQuery = ref('');
-        const activeSub = ref(null); // 当前查看的客户子单
-        const activeMaster = ref(null); // 当前查看的主单
+        const activeSub = ref(null);
+        const activeMaster = ref(null);
         const zoomedPhoto = ref(null);
         
         const showEditModal = ref(false);
         const editingMaster = ref(null);
-        const tempPhoto = ref(null);
+        const tempFile = ref(null);
+        const uploading = ref(false);
 
         const showAddSubModal = ref(false);
-        const newSubData = ref({ masterId: '', customerAccount: '', customerName: '', product: '', weight: '' });
+        const newSubData = ref({ masterId: '', customer_account: '', customer_name: '', product: '', weight: '' });
 
         const stepNames = ['接单预审', '航班起飞', '机场落地', '海关申报', '查验放行', '装车配送'];
-
-        // 核心数据源 (主单与分单分离)
         const masterWaybills = ref([]);
         const subWaybills = ref([]);
-        const customerConsignments = ref([]); // 当前查询账号下的货物列表
+        const customerConsignments = ref([]);
 
-        // 初始化演示数据 (包含一个大主单下的两个独立客户)
-        const initData = () => {
-          const storedMasters = localStorage.getItem('master_waybills');
-          const storedSubs = localStorage.getItem('sub_waybills');
+        // 从 Supabase 实时加载数据
+        const loadDataFromSupabase = async () => {
+          try {
+            // 获取所有主单
+            const { data: masters, error: err1 } = await supabaseClient.from('master_waybills').select('*').order('created_at', { ascending: false });
+            if (masters) masterWaybills.value = masters;
 
-          if (storedMasters && storedSubs) {
-            masterWaybills.value = JSON.parse(storedMasters);
-            subWaybills.value = JSON.parse(storedSubs);
-          } else {
-            // 1. 初始化主单 (航空、海关状态在这个层级)
-            masterWaybills.value = [
-              {
-                id: 'KH20260601',
-                currentStep: 2, // 机场落地
-                steps: [
-                  { name: '接单预审', time: '2026-06-01 08:30', photo: '' },
-                  { name: '航班起飞', time: '2026-06-01 11:20', photo: '' },
-                  { name: '机场落地', time: '2026-06-01 13:45', photo: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&q=80' },
-                  { name: '海关申报', time: '', photo: '' },
-                  { name: '查验放行', time: '', photo: '' },
-                  { name: '装车配送', time: '', photo: '' }
-                ]
-              }
-            ];
-
-            // 2. 初始化拼单 (跟具体客户账号绑定的明细)
-            subWaybills.value = [
-              {
-                subId: 'SUB-2026-A01',
-                masterId: 'KH20260601',
-                customerAccount: 'CUST-ALEX',
-                customerName: '金边万客隆-Alex',
-                product: '柬埔寨鲜活中号蓝龙虾 (分箱 A)',
-                weight: '45.0'
-              },
-              {
-                subId: 'SUB-2026-A02',
-                masterId: 'KH20260601',
-                customerAccount: 'CUST-SOPHIA',
-                customerName: '西港中餐馆-Sophia',
-                product: '柬埔寨特大号蓝龙虾 (分箱 B)',
-                weight: '75.0'
-              }
-            ];
-            saveAllToStorage();
+            // 获取所有分单
+            const { data: subs, error: err2 } = await supabaseClient.from('sub_waybills').select('*');
+            if (subs) subWaybills.value = subs;
+          } catch (e) {
+            console.error('加载 Supabase 失败', e);
           }
-        };
-
-        const saveAllToStorage = () => {
-          localStorage.setItem('master_waybills', JSON.stringify(masterWaybills.value));
-          localStorage.setItem('sub_waybills', JSON.stringify(subWaybills.value));
         };
 
         const getStepDescription = (index) => {
           const desc = [
-            '货代清关员已完成前置资料审核，小龙虾温控符合空运安全及动植物检疫要求。',
-            '空运航班起飞，已进入冷链保鲜仓（冷气全程不间断）。',
-            '航班顺利落地金边国际机场。我司现场人员已在机舱门对接接收货物。',
-            '报关单及进境允许证书已提交给柬埔寨海关，正在走快速“绿色通道”审核。',
-            '柬埔寨海关现场开箱核实无误，海关系统下达放行指令，允许出区。',
-            '已安全装入我司自备冷藏配送车，正在向指定的交货地点全速运输。'
+            '货代清关员已完成前置资料审核，龙虾温控符合空运安全要求。',
+            '航班起飞，已进入冷链保鲜仓（冷气全程不间断）。',
+            '航班顺利落地金边。我司现场人员已在机舱门对接接收货物。',
+            '报关单及进境允许证书已提交给柬埔寨海关，走绿色通道审核中。',
+            '海关现场查验无误下达放行指令，小龙虾装运出区。',
+            '已装入我司冷藏车，正在向您指定的金边/西港地址全速送达。'
           ];
           return desc[index];
         };
 
         const getStepName = (index) => stepNames[index];
+        const getMasterWaybill = (masterId) => masterWaybills.value.find(m => m.id === masterId) || null;
+        const getSubsForMaster = (masterId) => subWaybills.value.filter(s => s.master_id === masterId);
 
-        const getMasterWaybill = (masterId) => {
-          return masterWaybills.value.find(m => m.id === masterId) || null;
-        };
-
-        const getSubsForMaster = (masterId) => {
-          return subWaybills.value.filter(s => s.masterId === masterId);
-        };
-
-        // 切换视图角色
         const toggleRole = () => {
           if (currentRole.value === 'customer') {
             currentRole.value = 'admin';
@@ -492,199 +365,189 @@
           }
         };
 
-        // 客户：通过专属账号查询
-        const handleSearch = () => {
-          const cleanedQuery = searchQuery.value.trim().toUpperCase();
-          if (!cleanedQuery) {
-            alert('请输入您的客户账号或登记手机号！');
-            return;
+        // 按客户账号/手机号查询
+        const handleSearch = async () => {
+          const cleaned = searchQuery.value.trim().toUpperCase();
+          if (!cleaned) return alert('请输入账号');
+
+          // 从 Supabase 模糊查询对应分单
+          const { data, error } = await supabaseClient
+            .from('sub_waybills')
+            .select('*')
+            .eq('customer_account', cleaned);
+
+          if (error || !data || data.length === 0) {
+            return alert('未查询到在途龙虾拼舱单，请核对账号。');
           }
 
-          // 筛选出属于该客户名下的所有拼舱货物
-          const matched = subWaybills.value.filter(sub => 
-            sub.customerAccount.toUpperCase() === cleanedQuery
-          );
-
-          if (matched.length === 0) {
-            alert('未查询到该账号下有在途货物，请核对后重试。');
-            return;
-          }
-
-          customerConsignments.value = matched;
-
-          if (matched.length === 1) {
-            // 如果仅有一批货，直接打开详情页
-            viewDetail(matched[0]);
+          customerConsignments.value = data;
+          if (data.length === 1) {
+            viewDetail(data[0]);
           } else {
-            // 如果有多批货，展示货物选择列表
             currentView.value = 'my-consignments';
           }
         };
 
-        // 客户：查看某个具体货物的清关时间轴
         const viewDetail = (sub) => {
           activeSub.value = sub;
-          // 关联获取对应主航次的物流进度
-          activeMaster.value = getMasterWaybill(sub.masterId);
+          activeMaster.value = getMasterWaybill(sub.master_id);
           currentView.value = 'detail';
         };
 
-        const goBackToQuery = () => {
-          currentView.value = 'query';
-        };
+        const goBackToQuery = () => currentView.value = 'query';
+        const goBackToList = () => customerConsignments.value.length > 1 ? currentView.value = 'my-consignments' : currentView.value = 'query';
+        const getTimelineLineHeight = () => activeMaster.value ? `${(activeMaster.value.current_step / 5) * 100}%` : '0%';
+        const zoomImage = (url) => zoomedPhoto.value = url;
 
-        const goBackToList = () => {
-          if (customerConsignments.value.length > 1) {
-            currentView.value = 'my-consignments';
-          } else {
-            currentView.value = 'query';
-          }
-        };
-
-        const getTimelineLineHeight = () => {
-          if (!activeMaster.value) return '0%';
-          const current = activeMaster.value.currentStep;
-          const total = stepNames.length - 1;
-          return `${(current / total) * 100}%`;
-        };
-
-        const zoomImage = (url) => {
-          zoomedPhoto.value = url;
-        };
-
-        // 管理员：更改主单状态
+        // 管理员：打开状态编辑
         const editMasterStatus = (master) => {
           editingMaster.value = JSON.parse(JSON.stringify(master));
-          tempPhoto.value = editingMaster.value.steps[editingMaster.value.currentStep].photo || null;
+          tempFile.value = null;
           showEditModal.value = true;
         };
 
         const setEditingStep = (idx) => {
-          editingMaster.value.currentStep = idx;
-          tempPhoto.value = editingMaster.value.steps[idx].photo || null;
+          editingMaster.value.current_step = idx;
         };
 
-        const handlePhotoUpload = (e) => {
+        // 用户拍照选中文件
+        const onPhotoSelected = (e) => {
           const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              tempPhoto.value = event.target.result;
-            };
-            reader.readAsDataURL(file);
-          }
+          if (file) tempFile.value = file;
         };
 
-        // 保存更新（主单更新，对应的所有分单客户都会一瞬间看到新状态）
-        const saveMasterStatus = () => {
+        // 同步保存状态至 Supabase
+        const saveMasterStatus = async () => {
           const target = masterWaybills.value.find(m => m.id === editingMaster.value.id);
-          if (target) {
-            const targetStepIdx = editingMaster.value.currentStep;
-            const nowString = new Date().toISOString().replace('T', ' ').substring(0, 16);
+          if (!target) return;
 
-            for (let i = 0; i <= targetStepIdx; i++) {
-              if (!editingMaster.value.steps[i].time) {
-                editingMaster.value.steps[i].time = nowString;
-              }
+          uploading.value = true;
+          let photoUrl = target.steps[editingMaster.value.current_step]?.photo || '';
+
+          // 1. 如果拍了新照片，先上传到 Supabase Storage
+          if (tempFile.value) {
+            const fileExt = tempFile.value.name.split('.').pop();
+            const fileName = `${editingMaster.value.id}_step${editingMaster.value.current_step}_${Date.now()}.${fileExt}`;
+            
+            const { data, error } = await supabaseClient.storage
+              .from('lobster-photos')
+              .upload(fileName, tempFile.value);
+
+            if (error) {
+              alert('照片上传失败: ' + error.message);
+              uploading.value = false;
+              return;
             }
 
-            editingMaster.value.steps[targetStepIdx].photo = tempPhoto.value || '';
-            target.currentStep = targetStepIdx;
-            target.steps = editingMaster.value.steps;
+            // 获取公共可访问 URL
+            const { data: publicUrlData } = supabaseClient.storage
+              .from('lobster-photos')
+              .getPublicUrl(fileName);
+            
+            photoUrl = publicUrlData.publicUrl;
+          }
 
-            saveAllToStorage();
+          // 2. 自动补充前面步骤的缺失时间戳
+          const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+          for (let i = 0; i <= editingMaster.value.current_step; i++) {
+            if (!editingMaster.value.steps[i].time) {
+              editingMaster.value.steps[i].time = nowStr;
+            }
+          }
+
+          // 关联新照片链接
+          editingMaster.value.steps[editingMaster.value.current_step].photo = photoUrl;
+
+          // 3. 将最新状态写回 Supabase 数据库
+          const { error: dbError } = await supabaseClient
+            .from('master_waybills')
+            .update({
+              current_step: editingMaster.value.current_step,
+              steps: editingMaster.value.steps
+            })
+            .eq('id', editingMaster.value.id);
+
+          uploading.value = false;
+          if (dbError) {
+            alert('保存进度失败: ' + dbError.message);
+          } else {
+            alert('清关进度及照片已实时同步至云端！');
             showEditModal.value = false;
-            alert(`主单 ${target.id} 进度已成功更新，各分箱客户数据已实时完成同步。`);
+            loadDataFromSupabase(); // 重新加载刷新
           }
         };
 
-        // 管理员：为主单关联新分单货物
-        const addSubToMaster = (masterId) => {
-          newSubData.value = {
-            masterId: masterId,
-            subId: 'SUB-' + new Date().toISOString().substring(2,10).replace(/-/g,'') + Math.floor(Math.random()*100).toString().padStart(2, '0'),
-            customerAccount: '',
-            customerName: '',
-            product: '柬埔寨鲜活小龙虾',
-            weight: ''
-          };
-          showAddSubModal.value = true;
-        };
-
-        const saveNewSub = () => {
-          const d = newSubData.value;
-          if (!d.customerAccount || !d.customerName || !d.weight) {
-            alert('请完整填写客户必要货运信息！');
-            return;
-          }
-          subWaybills.value.push({
-            subId: d.subId,
-            masterId: d.masterId,
-            customerAccount: d.customerAccount.trim().toUpperCase(),
-            customerName: d.customerName,
-            product: d.product,
-            weight: d.weight
-          });
-          saveAllToStorage();
-          showAddSubModal.value = false;
-          alert('分单货物关联成功！');
-        };
-
-        // 管理员：快速新增主运单
-        const openAddMasterModal = () => {
+        // 管理端：新建主单
+        const openAddMasterModal = async () => {
           const newId = 'KH' + new Date().toISOString().substring(2,10).replace(/-/g,'') + Math.floor(Math.random()*100).toString().padStart(2, '0');
           const newMaster = {
             id: newId,
-            currentStep: 0,
+            current_step: 0,
             steps: stepNames.map((name, i) => ({
               name,
               time: i === 0 ? new Date().toISOString().replace('T', ' ').substring(0, 16) : '',
               photo: ''
             }))
           };
-          masterWaybills.value.unshift(newMaster);
-          saveAllToStorage();
-          alert(`主单 ${newId} 创建完毕！可在该主单下关联多个不同的客户拼箱货物。`);
+
+          const { error } = await supabaseClient.from('master_waybills').insert([newMaster]);
+          if (error) {
+            alert('创建主单失败: ' + error.message);
+          } else {
+            alert(`主航次 ${newId} 创建完成！`);
+            loadDataFromSupabase();
+          }
+        };
+
+        // 管理员：关联新客户拼单
+        const addSubToMaster = (masterId) => {
+          newSubData.value = {
+            masterId: masterId,
+            customer_account: '',
+            customer_name: '',
+            product: '柬埔寨鲜活小龙虾',
+            weight: ''
+          };
+          showAddSubModal.value = true;
+        };
+
+        const saveNewSub = async () => {
+          const d = newSubData.value;
+          if (!d.customer_account || !d.customer_name || !d.weight) {
+            return alert('请完整填写信息');
+          }
+
+          const newSub = {
+            sub_id: 'SUB-' + new Date().toISOString().substring(2,10).replace(/-/g,'') + Math.floor(Math.random()*100).toString().padStart(2, '0'),
+            master_id: d.masterId,
+            customer_account: d.customer_account.trim().toUpperCase(),
+            customer_name: d.customer_name,
+            product: d.product,
+            weight: parseFloat(d.weight)
+          };
+
+          const { error } = await supabaseClient.from('sub_waybills').insert([newSub]);
+          if (error) {
+            alert('关联客户失败: ' + error.message);
+          } else {
+            alert('客户拼箱货物关联成功！');
+            showAddSubModal.value = false;
+            loadDataFromSupabase();
+          }
         };
 
         onMounted(() => {
-          initData();
+          loadDataFromSupabase();
         });
 
         return {
-          currentRole,
-          currentView,
-          searchQuery,
-          activeSub,
-          activeMaster,
-          zoomedPhoto,
-          masterWaybills,
-          subWaybills,
-          customerConsignments,
-          showEditModal,
-          editingMaster,
-          tempPhoto,
-          showAddSubModal,
-          newSubData,
-          stepNames,
-          getStepDescription,
-          getStepName,
-          getMasterWaybill,
-          getSubsForMaster,
-          toggleRole,
-          handleSearch,
-          viewDetail,
-          goBackToQuery,
-          goBackToList,
-          getTimelineLineHeight,
-          zoomImage,
-          editMasterStatus,
-          setEditingStep,
-          handlePhotoUpload,
-          saveMasterStatus,
-          addSubToMaster,
-          saveNewSub,
-          openAddMasterModal
+          currentRole, currentView, searchQuery, activeSub, activeMaster, zoomedPhoto,
+          masterWaybills, subWaybills, customerConsignments, showEditModal, editingMaster,
+          tempFile, uploading, showAddSubModal, newSubData, stepNames,
+          getStepDescription, getStepName, getMasterWaybill, getSubsForMaster,
+          toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
+          getTimelineLineHeight, zoomImage, editMasterStatus, setEditingStep,
+          onPhotoSelected, saveMasterStatus, addSubToMaster, saveNewSub, openAddMasterModal
         };
       }
     }).mount('#app');
