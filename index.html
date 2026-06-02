@@ -438,6 +438,13 @@
       console.warn('⚠️ 未检测到有效 Supabase 配置，当前运行在 Mock 演示模式。');
     }
 
+    // 🔥 核心时区修正函数：自动检测本地时区差，确保不管是柬埔寨(UTC+7)还是其他时区，保存和生成的均是精准的本地时间
+    const getLocalTime = () => {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000; // 时区偏差毫秒数
+      return new Date(now.getTime() - offset).toISOString().split('T').join(' ').substring(0, 16);
+    };
+
     createApp({
       setup() {
         const currentRole = ref('customer');
@@ -519,7 +526,7 @@
                   sub.current_step = 0;
                   sub.steps = stepNames.map((name, i) => ({
                     name,
-                    time: i === 0 ? 'Previously Init' : '',
+                    time: i === 0 ? getLocalTime() : '', // 使用纠正后的本地柬埔寨时间
                     photo: '',
                     desc: ''
                   }));
@@ -547,7 +554,7 @@
             '货代清关员已完成前置资料审核，您的货物已经送达集货仓。',
             '航班已起飞，您的货物正在运抵柬埔寨-达克茂机场。',
             '航班顺利落地金边-达克茂机场。我司现场人员已在等待接收货物。',
-            '报关单及进口证书已提交给柬埔寨海关，正在走绿色通道审核中。',
+            '报关单及进口证书已提交给柬埔寨海关，走绿色通道审核中。',
             '海关现场查验无误已下达放行指令，您的小龙虾正在装运出机场库区。',
             '已装入我司专车，正在向您指定的金边/西港地址全速送达，请等待收货。',
             '货物已安全送达客户手中并完成现场签收，本次物流清关保障业务顺利结单。'
@@ -696,7 +703,8 @@
             photoUrl = publicUrlData.publicUrl;
           }
 
-          const nowStr = new Date().toISOString().split('T').join(' ').substring(0, 16);
+          // 🔥 核心时区修正：进度更新时自动采用本地时间（东七区），彻底解决时区比实际当地慢7个小时的问题
+          const nowStr = getLocalTime();
           for (let i = 0; i <= editingSubProgress.value.current_step; i++) {
             if (!editingSubProgress.value.steps[i].time) {
               editingSubProgress.value.steps[i].time = nowStr;
@@ -807,9 +815,10 @@
             product: d.product,
             weight: parseFloat(d.weight),
             current_step: 0,
+            // 🔥 核心时区修正：新建拼箱子单时自动采用本地时间（东七区），保证第一步进度时间准确无误
             steps: stepNames.map((name, i) => ({
               name,
-              time: i === 0 ? new Date().toISOString().split('T').join(' ').substring(0, 16) : '',
+              time: i === 0 ? getLocalTime() : '',
               photo: '',
               desc: ''
             }))
