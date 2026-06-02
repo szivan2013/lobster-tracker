@@ -1,3 +1,4 @@
+--- START OF FILE index.html ---
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -216,7 +217,7 @@
             <div class="flex justify-between items-start mb-2">
               <div>
                 <span class="text-xs font-mono font-bold text-slate-400">主单号: {{ master.id }}</span>
-                <p class="text-xs text-slate-400">批次创建时间: {{ master.created_at ? new Date(master.created_at).toLocaleString() : '未知' }}</p>
+                <p class="text-xs text-slate-400">批次创建时间: {{ master.created_at ? formatLocalTime(master.created_at) : '未知' }}</p>
               </div>
               <button @click="deleteMaster(master.id)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
                 删除主单 🗑
@@ -438,11 +439,28 @@
       console.warn('⚠️ 未检测到有效 Supabase 配置，当前运行在 Mock 演示模式。');
     }
 
-    // 🔥 核心时区修正函数：自动检测本地时区差，确保不管是柬埔寨(UTC+7)还是其他时区，保存和生成的均是精准的本地时间
-    const getLocalTime = () => {
-      const now = new Date();
-      const offset = now.getTimezoneOffset() * 60000; // 时区偏差毫秒数
-      return new Date(now.getTime() - offset).toISOString().split('T').join(' ').substring(0, 16);
+    // 🔥 核心时区修正函数：
+    // 1. getLocalTime: 统一将 Date 对象、时间戳或 ISO 字符串转化为符合运行设备本地时区的 "YYYY-MM-DD HH:mm" 格式，完全消除时区偏差。
+    const getLocalTime = (dateInput) => {
+      const date = dateInput ? new Date(dateInput) : new Date();
+      if (isNaN(date.getTime())) return '';
+      const pad = (n) => String(n).padStart(2, '0');
+      const year = date.getFullYear();
+      const month = pad(date.getMonth() + 1);
+      const day = pad(date.getDate());
+      const hours = pad(date.getHours());
+      const minutes = pad(date.getMinutes());
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    };
+
+    // 2. getLocalIDDate: 获取本地视角的 "YYMMDD" 格式日期字符串。专用于生成主单和分单单号，避免在深夜/凌晨因直接使用 UTC 转换而导致单号日期错后一天的时区问题。
+    const getLocalIDDate = () => {
+      const date = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const yy = String(date.getFullYear()).substring(2);
+      const mm = pad(date.getMonth() + 1);
+      const dd = pad(date.getDate());
+      return `${yy}${mm}${dd}`;
     };
 
     createApp({
@@ -526,7 +544,7 @@
                   sub.current_step = 0;
                   sub.steps = stepNames.map((name, i) => ({
                     name,
-                    time: i === 0 ? getLocalTime() : '', // 使用纠正后的本地柬埔寨时间
+                    time: i === 0 ? getLocalTime() : '', // 使用纠正后的本地时间
                     photo: '',
                     desc: ''
                   }));
@@ -703,7 +721,7 @@
             photoUrl = publicUrlData.publicUrl;
           }
 
-          // 🔥 核心时区修正：进度更新时自动采用本地时间（东七区），彻底解决时区比实际当地慢7个小时的问题
+          // 🔥 核心时区修正：进度更新时自动采用纠正后的本地时间
           const nowStr = getLocalTime();
           for (let i = 0; i <= editingSubProgress.value.current_step; i++) {
             if (!editingSubProgress.value.steps[i].time) {
@@ -768,7 +786,8 @@
         };
 
         const openAddMasterModal = async () => {
-          const newId = 'KH' + new Date().toISOString().substring(2,10).split('-').join('') + Math.floor(Math.random()*100).toString().padStart(2, '0');
+          // 修正：使用 getLocalIDDate 生成基于当地时区的日期单号，消除凌晨/深夜产生的 1 天偏差
+          const newId = 'KH' + getLocalIDDate() + Math.floor(Math.random()*100).toString().padStart(2, '0');
           const newMaster = {
             id: newId,
             created_at: new Date().toISOString()
@@ -806,7 +825,8 @@
             return alert('请完整填写信息');
           }
 
-          const newSubId = 'SUB-' + new Date().toISOString().substring(2,10).split('-').join('') + Math.floor(Math.random()*100).toString().padStart(2, '0');
+          // 修正：使用 getLocalIDDate 替代 Date().toISOString()，防止生成的分单号时间与实际不符
+          const newSubId = 'SUB-' + getLocalIDDate() + Math.floor(Math.random()*100).toString().padStart(2, '0');
           const newSub = {
             sub_id: newSubId,
             master_id: d.masterId,
@@ -815,7 +835,6 @@
             product: d.product,
             weight: parseFloat(d.weight),
             current_step: 0,
-            // 🔥 核心时区修正：新建拼箱子单时自动采用本地时间（东七区），保证第一步进度时间准确无误
             steps: stepNames.map((name, i) => ({
               name,
               time: i === 0 ? getLocalTime() : '',
@@ -899,10 +918,12 @@
           getStepDescription, getStepName, getMasterWaybill, getSubsForMaster,
           toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
           getTimelineLineHeight, zoomImage, setEditingStep,
-          onPhotoSelected, addSubToMaster, saveNewSub, openAddMasterModal
+          onPhotoSelected, addSubToMaster, saveNewSub, openAddMasterModal,
+          formatLocalTime: getLocalTime // 导出时间转换方法供模板使用
         };
       }
     }).mount('#app');
   </script>
 </body>
 </html>
+--- END OF FILE index.html ---
