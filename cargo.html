@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>禾硕&IFT物流进度查询系统</title>
+  <title>Infinity 禾硕&IFT 物流进度查询系统</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Vue 3 CDN -->
@@ -13,77 +13,109 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { -webkit-tap-highlight-color: transparent; padding-bottom: env(safe-area-inset-bottom); }
-    .pulse-animation { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(1.15); } }
+    .pulse-glow { animation: pulseGlow 2s infinite; }
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4); }
+      50% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(20, 184, 166, 0); }
+    }
     [v-cloak] { display: none; }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-900 text-slate-800 font-sans min-h-screen flex items-center justify-center p-0 sm:p-4">
 
-  <div id="app" class="flex-1 flex flex-col max-w-md mx-auto w-full bg-white shadow-lg min-h-screen relative" v-cloak>
+  <div id="app" class="flex-1 flex flex-col max-w-md mx-auto w-full bg-white shadow-2xl sm:rounded-3xl min-h-screen sm:min-h-[850px] sm:max-h-[92vh] overflow-hidden relative border border-slate-100" v-cloak>
     
     <!-- 顶部导航栏 -->
-    <header class="bg-indigo-600 text-white px-4 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
-      <div class="flex items-center space-x-2">
-        <span class="text-xl">📦</span>
-        <h1 class="font-bold text-base tracking-wider">禾硕&IFT跨境物流查询</h1>
+    <header class="bg-white/80 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex justify-between items-center sticky top-0 z-40 shadow-xs">
+      <div class="flex items-center space-x-2.5">
+        <!-- 迷你版 Logo 标识 -->
+        <svg class="w-6 h-6 flex-shrink-0" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="logo-mini-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#22d3ee" />
+              <stop offset="100%" stop-color="#0d9488" />
+            </linearGradient>
+          </defs>
+          <path d="M90 50 C90 72.1 72.1 90 50 90 C27.9 90 10 72.1 10 50 C10 32 22 17 38 12 C30 18 25 28 25 40 C25 60 40 75 60 75 C72 75 82 68 87 58 C89 54 90 50 90 50 Z" fill="url(#logo-mini-grad)" />
+          <path d="M10 50 C10 27.9 27.9 10 50 10 C72.1 10 90 27.9 90 50 C90 68 78 83 62 88 C70 82 75 72 75 60 C75 40 60 25 40 25 C28 25 18 32 13 42 C11 46 10 50 10 50 Z" fill="url(#logo-mini-grad)" opacity="0.6" />
+        </svg>
+        <div class="flex flex-col">
+          <h1 class="font-bold text-sm tracking-tight text-slate-800">Infinity 物流查询</h1>
+          <span class="text-[9px] text-slate-400 tracking-wider uppercase">Heshuo & IFT Global</span>
+        </div>
       </div>
-      <div class="flex items-center space-x-1.5">
-        <span v-if="currentUser" class="text-[10px] bg-indigo-700 px-2 py-1 rounded text-indigo-200">
-          👤 {{ currentUser.username }} ({{ currentUser.role === 'admin' ? '管理员' : '操作员' }})
+      <div class="flex items-center space-x-2">
+        <span v-if="currentUser" class="text-[9px] bg-slate-100 text-slate-600 px-2 py-1 rounded-md font-semibold">
+          👤 {{ currentUser.username }} ({{ currentUser.role === 'admin' ? '管' : '操' }})
         </span>
-        <button @click="toggleRole" class="text-[11px] bg-indigo-700 hover:bg-indigo-800 px-2.5 py-1.5 rounded-lg border border-indigo-500 transition">
-          {{ currentRole === 'customer' ? '工作台' : '退出登录' }}
+        <button @click="toggleRole" class="text-[10px] bg-slate-900 text-white font-semibold hover:bg-slate-800 px-3 py-1.5 rounded-lg transition duration-200 shadow-sm">
+          {{ currentRole === 'customer' ? '工作台' : '安全退出' }}
         </button>
       </div>
     </header>
 
     <!-- 主体内容区域 -->
-    <main class="flex-1 flex flex-col p-4 overflow-y-auto">
+    <main class="flex-1 flex flex-col p-5 overflow-y-auto bg-slate-50/50">
 
       <!-- 1. 客户：查询页 -->
       <div v-if="currentView === 'query'" class="flex-1 flex flex-col justify-center py-6">
-        <div class="text-center mb-8">
-          <div class="inline-flex p-4 bg-indigo-50 rounded-full text-indigo-600 mb-3">
-            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        
+        <!-- 品牌大Logo展示区域 -->
+        <div class="text-center mb-10">
+          <div class="relative w-32 h-32 mx-auto mb-4">
+            <!-- 品牌专属双环渐变图形 -->
+            <svg viewBox="0 0 100 100" class="w-full h-full transform hover:rotate-180 transition duration-1000 ease-in-out">
+              <defs>
+                <linearGradient id="swirlGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#22d3ee" />
+                  <stop offset="50%" stop-color="#0ea5e9" />
+                  <stop offset="100%" stop-color="#0f766e" />
+                </linearGradient>
+              </defs>
+              <path d="M90 50 C90 72.1 72.1 90 50 90 C27.9 90 10 72.1 10 50 C10 32 22 17 38 12 C30 18 25 28 25 40 C25 60 40 75 60 75 C72 75 82 68 87 58 C89 54 90 50 90 50 Z" fill="url(#swirlGrad)" />
+              <path d="M10 50 C10 27.9 27.9 10 50 10 C72.1 10 90 27.9 90 50 C90 68 78 83 62 88 C70 82 75 72 75 60 C75 40 60 25 40 25 C28 25 18 32 13 42 C11 46 10 50 10 50 Z" fill="url(#swirlGrad)" opacity="0.6" />
             </svg>
           </div>
-          <h2 class="text-2xl font-black text-slate-800 tracking-tight">禾硕&IFT国际物流查询</h2>
-          <p class="text-slate-500 text-xs mt-1.5">请输入您的客户账号，查询海/空/陆运在途货运实时状态</p>
+          <h2 class="text-3xl font-black tracking-tight text-slate-800 font-sans">Infinity</h2>
+          <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">禾硕 & IFT 跨境物流查询系统</p>
         </div>
 
-        <div class="space-y-4">
-          <div>
-            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">客户账号 / 登记手机号</label>
-            <input 
-              v-model="searchQuery" 
-              type="text" 
-              placeholder="如: CUST-YANG" 
-              class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg font-mono tracking-wider transition"
-              @keyup.enter="handleSearch"
-            />
+        <div class="space-y-4 max-w-sm mx-auto w-full">
+          <div class="relative">
+            <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">客户账号 / 登记手机号</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                🔍
+              </span>
+              <input 
+                v-model="searchQuery" 
+                type="text" 
+                placeholder="请输入您的客户账号 (如: CUST-YANG)" 
+                class="w-full pl-10 pr-4 py-3.5 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm font-mono tracking-wider transition bg-white/70 shadow-xs"
+                @keyup.enter="handleSearch"
+              />
+            </div>
           </div>
           
           <button 
             @click="handleSearch" 
-            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition duration-150 active:scale-[0.98]"
+            class="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-teal-600/10 transition duration-200 active:scale-[0.98] text-sm"
           >
-            查询物流进度
+            立即获取实时物流状态
           </button>
         </div>
       </div>
 
       <!-- 2. 客户：我的货物列表 -->
-      <div v-if="currentView === 'my-consignments'" class="space-y-4 animate-fade-in">
-        <button @click="goBackToQuery" class="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600">
-          <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      <div v-if="currentView === 'my-consignments'" class="space-y-5 animate-fade-in">
+        <button @click="goBackToQuery" class="inline-flex items-center text-xs font-semibold text-slate-400 hover:text-teal-600 transition">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           重新输入账号
         </button>
         
-        <div>
-          <h3 class="text-xl font-bold text-slate-800">名下在途运单列表</h3>
-          <p class="text-xs text-slate-500 mt-1">查询账号：{{ searchQuery.toUpperCase() }}</p>
+        <div class="border-b border-slate-100 pb-3">
+          <h3 class="text-lg font-bold text-slate-800">名下在途运单列表</h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">当前查询账号：<span class="font-mono text-slate-600">{{ searchQuery.toUpperCase() }}</span></p>
         </div>
 
         <div class="space-y-3">
@@ -91,25 +123,25 @@
             v-for="sub in customerConsignments" 
             :key="sub.sub_id"
             @click="viewDetail(sub)"
-            class="border rounded-xl p-4 cursor-pointer transition flex justify-between items-center bg-white shadow-sm border-slate-100 hover:border-indigo-500"
+            class="group border border-slate-100 rounded-2xl p-4.5 cursor-pointer transition-all duration-300 flex justify-between items-center bg-white shadow-xs hover:shadow-md hover:border-teal-500/30"
           >
-            <div>
-              <div class="flex items-center space-x-1.5">
-                <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-indigo-50 text-indigo-700">分单: {{ sub.sub_id }}</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded border font-semibold" :class="getShippingTypeBadge(sub.master_shipping_type).color">
+            <div class="space-y-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-[10px] px-2 py-0.5 rounded-md font-mono bg-slate-100 text-slate-600 font-bold">分单: {{ sub.sub_id }}</span>
+                <span class="text-[9px] px-2 py-0.5 rounded-md border font-bold" :class="getShippingTypeBadge(sub.master_shipping_type).color">
                   {{ getShippingTypeBadge(sub.master_shipping_type).name }}
                 </span>
               </div>
-              <h4 class="font-bold mt-2 text-slate-800 text-sm">
+              <h4 class="font-bold text-slate-800 text-sm group-hover:text-teal-600 transition">
                 📦 {{ sub.product_name }}
               </h4>
-              <p class="text-[11px] text-slate-400 mt-0.5">主单航次: {{ sub.master_id }}</p>
+              <p class="text-[10px] text-slate-400 font-mono">主单航次: {{ sub.master_id }}</p>
             </div>
-            <div class="text-right">
-              <p class="text-xs font-bold text-slate-700">{{ sub.weight || 0 }} KG | {{ sub.volume || 0 }} CBM</p>
-              <div class="text-[11px] font-bold mt-1 text-indigo-600">
+            <div class="text-right space-y-1">
+              <p class="text-xs font-bold text-slate-600">{{ sub.weight || 0 }} KG | {{ sub.volume || 0 }} CBM</p>
+              <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" :class="sub.current_step === 6 ? 'bg-teal-50 text-teal-700' : 'bg-sky-50 text-sky-700'">
                 {{ sub.current_step === 6 ? '✅ 已安全妥投' : sub.steps[sub.current_step]?.name }}
-              </div>
+              </span>
             </div>
           </div>
         </div>
@@ -117,89 +149,98 @@
 
       <!-- 3. 客户：运单进度详情页 -->
       <div v-if="currentView === 'detail' && activeSub" class="space-y-5 animate-fade-in">
-        <button @click="goBackToList" class="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600 transition">
-          <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        <button @click="goBackToList" class="inline-flex items-center text-xs font-semibold text-slate-400 hover:text-teal-600 transition">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           返回列表
         </button>
 
         <!-- 完结单顶部横幅 -->
-        <div v-if="activeSub.current_step === 6" class="bg-indigo-50 border border-indigo-100 text-indigo-800 p-4 rounded-2xl flex items-center space-x-3 shadow-sm">
+        <div v-if="activeSub.current_step === 6" class="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100 text-teal-900 p-4 rounded-2xl flex items-center space-x-3 shadow-xs">
           <span class="text-2xl">🎉</span>
           <div>
-            <h4 class="font-bold text-sm">该货物已完成妥投签收</h4>
-            <p class="text-[11px] text-indigo-600 mt-0.5">感谢您的信任与合作，期待再次为您服务！</p>
+            <h4 class="font-bold text-xs">该货物已完成妥投签收</h4>
+            <p class="text-[10px] text-teal-600 mt-0.5">感谢您的信任与合作，期待再次为您服务！</p>
           </div>
         </div>
 
-        <!-- 核心运单信息卡片 -->
-        <div class="bg-gradient-to-br from-indigo-600 to-slate-800 rounded-2xl p-5 text-white shadow-lg">
-          <div class="flex justify-between items-start mb-4">
+        <!-- 核心运单信息卡片（登机牌风格设计） -->
+        <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden">
+          <div class="absolute -right-4 -bottom-4 opacity-10">
+            <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" /></svg>
+          </div>
+          
+          <div class="flex justify-between items-start mb-4 relative z-10">
             <div>
-              <p class="text-indigo-200 text-[10px] uppercase">Waybill ID</p>
-              <h3 class="text-lg font-mono font-bold tracking-wider">{{ activeSub.sub_id }}</h3>
-              <p class="text-xs text-indigo-200 mt-0.5">客户：{{ activeSub.customer_name }}</p>
+              <p class="text-teal-400 text-[9px] uppercase tracking-widest font-bold">Waybill ID</p>
+              <h3 class="text-lg font-mono font-bold tracking-wider text-slate-100">{{ activeSub.sub_id }}</h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">客户：{{ activeSub.customer_name }}</p>
             </div>
-            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border" :class="getShippingTypeBadge(activeSub.master_shipping_type).color">
+            <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-white/20 backdrop-blur-xs bg-white/5">
               {{ getShippingTypeBadge(activeSub.master_shipping_type).name }}
             </span>
           </div>
           
-          <div class="grid grid-cols-3 gap-3 pt-4 border-t border-white border-opacity-10 text-center">
+          <div class="grid grid-cols-3 gap-3 pt-4 border-t border-white/10 text-center relative z-10">
             <div>
-              <p class="text-indigo-200 text-[10px]">货物名称</p>
-              <p class="font-bold text-xs mt-0.5 truncate">{{ activeSub.product_name }}</p>
+              <p class="text-slate-400 text-[9px] uppercase">货物名称</p>
+              <p class="font-bold text-xs mt-0.5 truncate text-slate-100">{{ activeSub.product_name }}</p>
             </div>
             <div>
-              <p class="text-indigo-200 text-[10px]">总重量 / 体积</p>
-              <p class="font-bold text-xs mt-0.5">{{ activeSub.weight }} KG / {{ activeSub.volume }} CBM</p>
+              <p class="text-slate-400 text-[9px] uppercase">总重/体积</p>
+              <p class="font-bold text-xs mt-0.5 text-slate-100">{{ activeSub.weight }} KG / {{ activeSub.volume }} CBM</p>
             </div>
             <div>
-              <p class="text-indigo-200 text-[10px]">货物件数</p>
-              <p class="font-bold text-xs mt-0.5">{{ activeSub.pieces }} 件</p>
+              <p class="text-slate-400 text-[9px] uppercase">货物件数</p>
+              <p class="font-bold text-xs mt-0.5 text-slate-100">{{ activeSub.pieces }} 件</p>
             </div>
           </div>
         </div>
 
         <!-- 物流时间轴 -->
-        <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-          <h4 class="font-bold text-slate-800 mb-6 text-sm flex items-center">
-            <span class="w-1.5 h-4 bg-indigo-600 rounded-full mr-2"></span>
+        <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs">
+          <h4 class="font-bold text-slate-800 mb-6 text-xs tracking-wider flex items-center">
+            <span class="w-1.5 h-3.5 bg-teal-500 rounded-full mr-2"></span>
             实时运输及报关进度
           </h4>
 
           <div class="relative pl-6 space-y-8">
+            <!-- 灰色背景轨道 -->
             <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100 z-0"></div>
-            <div class="absolute left-[11px] top-2 w-0.5 bg-indigo-500 transition-all duration-500 z-0" :style="{ height: getTimelineLineHeight() }"></div>
+            <!-- 彩色激活轨道 -->
+            <div class="absolute left-[11px] top-2 w-0.5 bg-gradient-to-b from-teal-500 to-cyan-500 transition-all duration-500 z-0" :style="{ height: getTimelineLineHeight() }"></div>
 
             <div v-for="(step, index) in activeSub.steps" :key="index" class="relative flex items-start space-x-4">
               <div class="absolute -left-[20px] z-10">
-                <div v-if="index < activeSub.current_step" class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white shadow-sm">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                <!-- 过去的节点 -->
+                <div v-if="index < activeSub.current_step" class="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white shadow-xs">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 </div>
-                <div v-else-if="index === activeSub.current_step" class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md ring-4 ring-indigo-100 pulse-animation">
-                  <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
+                <!-- 现在的节点 -->
+                <div v-else-if="index === activeSub.current_step" class="w-6 h-6 rounded-full bg-teal-600 flex items-center justify-center text-white shadow-md pulse-glow">
+                  <div class="w-2 h-2 bg-white rounded-full"></div>
                 </div>
-                <div v-else class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-400">
-                  <span class="text-[10px] font-bold">{{ index + 1 }}</span>
+                <!-- 未来的节点 -->
+                <div v-else class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 border border-slate-200">
+                  <span class="text-[9px] font-bold">{{ index + 1 }}</span>
                 </div>
               </div>
 
               <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-center mb-1">
                   <h5 class="font-bold text-xs" :class="index <= activeSub.current_step ? 'text-slate-800' : 'text-slate-400'">{{ step.name }}</h5>
-                  <span v-if="step.time" class="text-[10px] text-slate-400 font-mono">{{ step.time }}</span>
+                  <span v-if="step.time" class="text-[9px] text-slate-400 font-mono">{{ step.time }}</span>
                 </div>
                 
-                <p class="text-xs font-semibold text-indigo-700 bg-indigo-50/50 p-2 rounded-lg border border-dashed border-indigo-100 mb-1.5" v-if="step.desc && index <= activeSub.current_step">
+                <p class="text-xs font-semibold text-teal-700 bg-teal-50/50 p-2.5 rounded-xl border border-dashed border-teal-100 mb-1.5" v-if="step.desc && index <= activeSub.current_step">
                   📢 现场追踪：{{ step.desc }}
                 </p>
-                <p class="text-xs" :class="index <= activeSub.current_step ? 'text-slate-500' : 'text-slate-300'">
+                <p class="text-xs leading-relaxed" :class="index <= activeSub.current_step ? 'text-slate-500' : 'text-slate-300'">
                   {{ getStepDescription(index, activeSub.master_shipping_type) }}
                 </p>
 
                 <!-- 照片缩略图 -->
                 <div v-if="step.photo && index <= activeSub.current_step" class="mt-2.5">
-                  <div class="inline-block relative rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shadow-sm cursor-pointer" @click="zoomImage(step.photo)">
+                  <div class="inline-block relative rounded-xl overflow-hidden border border-slate-100 bg-slate-50 shadow-xs cursor-pointer" @click="zoomImage(step.photo)">
                     <img :src="step.photo" alt="现场照片" class="h-20 w-36 object-cover hover:opacity-90 transition">
                   </div>
                 </div>
@@ -213,12 +254,12 @@
       <div v-if="currentView === 'admin'" class="space-y-4 animate-fade-in">
         
         <!-- 角色菜单切换 (管理员可见) -->
-        <div v-if="currentUser && currentUser.role === 'admin'" class="flex border-b text-sm font-semibold mb-2">
-          <button @click="adminActiveTab = 'waybills'" class="flex-1 py-2 text-center" :class="adminActiveTab === 'waybills' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'">
+        <div v-if="currentUser && currentUser.role === 'admin'" class="flex border-b border-slate-100 text-xs font-bold mb-2">
+          <button @click="adminActiveTab = 'waybills'" class="flex-1 py-3 text-center transition" :class="adminActiveTab === 'waybills' ? 'text-teal-600 border-b-2 border-teal-500' : 'text-slate-400 hover:text-slate-600'">
             运单管理
           </button>
-          <button @click="adminActiveTab = 'operators'" class="flex-1 py-2 text-center" :class="adminActiveTab === 'operators' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'">
-            账户管理 (仅限管理员)
+          <button @click="adminActiveTab = 'operators'" class="flex-1 py-3 text-center transition" :class="adminActiveTab === 'operators' ? 'text-teal-600 border-b-2 border-teal-500' : 'text-slate-400 hover:text-slate-600'">
+            账户管理
           </button>
         </div>
 
@@ -226,58 +267,58 @@
         <div v-if="adminActiveTab === 'waybills'" class="space-y-4">
           <div class="flex justify-between items-center">
             <div>
-              <h2 class="text-sm font-bold text-slate-800">主批次船次/车次管理</h2>
-              <p class="text-[10px] text-slate-400">新建合并批次，并可添加客户拼箱货品</p>
+              <h2 class="text-xs font-bold text-slate-800">主批次管理</h2>
+              <p class="text-[9px] text-slate-400">新建合并批次，并可添加客户拼箱货品</p>
             </div>
-            <button @click="showAddMasterModal = true" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+            <button @click="showAddMasterModal = true" class="bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold px-3 py-2 rounded-xl shadow-xs transition">
               + 新建主运单
             </button>
           </div>
 
           <!-- 主运单批次卡片 -->
           <div class="space-y-4">
-            <div v-for="master in masterWaybills" :key="master.id" class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+            <div v-for="master in masterWaybills" :key="master.id" class="bg-white border border-slate-100 rounded-2xl p-4.5 shadow-xs">
               <div class="flex justify-between items-start mb-2">
                 <div>
-                  <div class="flex items-center space-x-1.5">
-                    <span class="text-xs font-mono font-bold text-slate-700">主单号: {{ master.id }}</span>
-                    <span class="text-[10px] px-1.5 py-0.2 rounded font-semibold" :class="getShippingTypeBadge(master.shipping_type).color">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-xs font-mono font-bold text-slate-800">主单号: {{ master.id }}</span>
+                    <span class="text-[9px] px-2 py-0.5 rounded-md font-bold" :class="getShippingTypeBadge(master.shipping_type).color">
                       {{ getShippingTypeBadge(master.shipping_type).name }}
                     </span>
                   </div>
-                  <p class="text-[10px] text-slate-400 mt-1">创建时间: {{ master.created_at ? formatLocalTime(master.created_at) : '未知' }}</p>
+                  <p class="text-[9px] text-slate-400 mt-1">创建时间: {{ master.created_at ? formatLocalTime(master.created_at) : '未知' }}</p>
                 </div>
-                <button @click="deleteMaster(master.id)" class="text-rose-500 text-xs hover:underline">删除主单 🗑</button>
+                <button @click="deleteMaster(master.id)" class="text-rose-500 text-[10px] font-bold hover:underline">删除主单</button>
               </div>
 
               <!-- 子货单列表 -->
-              <div class="mt-3 pt-3 border-t border-slate-100">
+              <div class="mt-3 pt-3 border-t border-slate-50">
                 <div class="flex justify-between items-center mb-2">
-                  <span class="text-xs font-bold text-slate-500">已绑定的客户货物单：</span>
-                  <button @click="addSubToMaster(master.id)" class="text-[10px] text-indigo-600 hover:underline font-bold">+ 关联客户</button>
+                  <span class="text-[11px] font-bold text-slate-400">已绑定的客户货物单：</span>
+                  <button @click="addSubToMaster(master.id)" class="text-[10px] text-teal-600 hover:underline font-bold">+ 关联客户</button>
                 </div>
 
                 <div class="space-y-2">
-                  <div v-for="sub in getSubsForMaster(master.id)" :key="sub.sub_id" class="bg-slate-50 p-2.5 rounded-lg text-xs flex justify-between items-center">
+                  <div v-for="sub in getSubsForMaster(master.id)" :key="sub.sub_id" class="bg-slate-50/70 border border-slate-100/50 p-3 rounded-xl text-xs flex justify-between items-center">
                     <div>
-                      <div class="font-mono font-bold text-slate-800 flex items-center space-x-1">
+                      <div class="font-mono font-bold text-slate-800 flex items-center space-x-1.5">
                         <span>{{ sub.sub_id }}</span>
-                        <span class="text-[9px] bg-slate-200 text-slate-500 px-1 rounded">{{ sub.customer_account }}</span>
+                        <span class="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-bold">{{ sub.customer_account }}</span>
                       </div>
-                      <div class="text-slate-500 mt-0.5 text-[11px]">{{ sub.customer_name }} - {{ sub.product_name }}</div>
-                      <span class="text-[10px] text-indigo-600 font-bold mt-1 inline-block">
+                      <div class="text-slate-500 mt-0.5 text-[11px] font-semibold">{{ sub.customer_name }} - {{ sub.product_name }}</div>
+                      <span class="text-[9px] text-teal-600 font-bold mt-1 inline-block bg-teal-50 px-1.5 py-0.2 rounded-md">
                         当前节点: {{ sub.steps[sub.current_step]?.name }}
                       </span>
                     </div>
                     <div class="flex items-center space-x-1">
-                      <div class="text-right mr-1.5">
+                      <div class="text-right mr-2">
                         <p class="font-bold text-slate-700 text-[11px]">{{ sub.weight }} KG</p>
-                        <p class="text-[10px] text-slate-400">{{ sub.volume }} CBM / {{ sub.pieces }}件</p>
+                        <p class="text-[9px] text-slate-400">{{ sub.volume }} CBM / {{ sub.pieces }}件</p>
                       </div>
-                      <button @click="editSubProgress(sub)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] px-2 py-1 rounded transition">
+                      <button @click="editSubProgress(sub)" class="bg-teal-600 hover:bg-teal-700 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-semibold transition shadow-xs">
                         更新进度
                       </button>
-                      <button @click="openEditSubModal(sub)" class="text-blue-600 p-1 bg-white border rounded shadow-xs text-[10px]">
+                      <button @click="openEditSubModal(sub)" class="text-slate-400 hover:text-slate-600 p-1.5 bg-white border border-slate-100 rounded-lg shadow-2xs text-[10px]">
                         ✏️
                       </button>
                     </div>
@@ -295,17 +336,17 @@
         <div v-if="adminActiveTab === 'operators' && currentUser && currentUser.role === 'admin'" class="space-y-4">
           <div class="flex justify-between items-center">
             <div>
-              <h2 class="text-sm font-bold text-slate-800">操作员账户列表</h2>
-              <p class="text-[10px] text-slate-400">添加并分配普通操作员权限</p>
+              <h2 class="text-xs font-bold text-slate-800">操作员账户列表</h2>
+              <p class="text-[9px] text-slate-400">添加并分配普通操作员权限</p>
             </div>
-            <button @click="showAddOperatorModal = true" class="bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+            <button @click="showAddOperatorModal = true" class="bg-slate-900 text-white text-[11px] font-bold px-3 py-2 rounded-xl shadow-xs transition">
               + 添加操作员
             </button>
           </div>
 
-          <div class="bg-white border rounded-xl overflow-hidden shadow-sm">
+          <div class="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-xs">
             <table class="w-full text-left text-xs">
-              <thead class="bg-slate-100 text-slate-500 font-bold border-b">
+              <thead class="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
                 <tr>
                   <th class="p-3">账号</th>
                   <th class="p-3">密码</th>
@@ -314,16 +355,16 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="op in operators" :key="op.username" class="border-b last:border-b-0 hover:bg-slate-50">
-                  <td class="p-3 font-mono">{{ op.username }}</td>
+                <tr v-for="op in operators" :key="op.username" class="border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 transition">
+                  <td class="p-3 font-mono font-bold">{{ op.username }}</td>
                   <td class="p-3 font-mono text-slate-400">{{ op.password }}</td>
                   <td class="p-3">
-                    <span class="px-1.5 py-0.5 rounded text-[10px]" :class="op.role === 'admin' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'">
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold" :class="op.role === 'admin' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'">
                       {{ op.role === 'admin' ? '系统管理员' : '普通操作员' }}
                     </span>
                   </td>
                   <td class="p-3 text-right">
-                    <button v-if="op.username !== 'admin'" @click="deleteOperator(op.username)" class="text-rose-600 hover:underline">删除</button>
+                    <button v-if="op.username !== 'admin'" @click="deleteOperator(op.username)" class="text-rose-600 hover:underline font-bold">删除</button>
                     <span v-else class="text-slate-300">-</span>
                   </td>
                 </tr>
@@ -337,69 +378,69 @@
     </main>
 
     <!-- 模态框 1：添加主运单 -->
-    <div v-if="showAddMasterModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-800 border-b pb-2">新建主单批次</h3>
+    <div v-if="showAddMasterModal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl animate-scale-in">
+        <h3 class="font-bold text-sm text-slate-800 border-b border-slate-50 pb-2">新建主单批次</h3>
         <div class="space-y-3 text-xs">
           <div>
             <label class="block text-slate-400 mb-1">选择货运线路模式</label>
-            <select v-model="newMasterData.shipping_type" class="w-full p-2.5 rounded border bg-white focus:ring-2 focus:ring-indigo-500">
+            <select v-model="newMasterData.shipping_type" class="w-full p-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
               <option value="sea">🚢 国际海运拼箱 (SEA)</option>
               <option value="air">✈️ 国际航空物流 (AIR)</option>
               <option value="land">🚚 跨境陆路运输 (LAND)</option>
             </select>
           </div>
-          <p class="text-[10px] text-slate-400">系统将根据所选线路和当前日期，自动生成唯一的主单航次编号。</p>
+          <p class="text-[9px] text-slate-400">系统将根据所选线路和当前日期，自动生成唯一的主单航次编号。</p>
         </div>
         <div class="flex space-x-2 pt-2">
-          <button @click="showAddMasterModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 text-xs">取消</button>
-          <button @click="saveNewMaster" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">生成主单</button>
+          <button @click="showAddMasterModal = false" class="flex-1 py-2 bg-slate-100 rounded-xl text-slate-600 text-xs font-semibold">取消</button>
+          <button @click="saveNewMaster" class="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-xs">生成主单</button>
         </div>
       </div>
     </div>
 
     <!-- 模态框 2：关联新客户拼箱货物 -->
-    <div v-if="showAddSubModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-800 border-b pb-2">关联客户货物到主单</h3>
+    <div v-if="showAddSubModal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl animate-scale-in">
+        <h3 class="font-bold text-sm text-slate-800 border-b border-slate-50 pb-2">关联客户货物到主单</h3>
         <div class="space-y-3 text-xs">
-          <input type="text" v-model="newSubData.customer_account" placeholder="客户查询账号 (如: CUST-YANG)" class="w-full p-2.5 rounded border">
-          <input type="text" v-model="newSubData.customer_name" placeholder="客户简称 / 抬头 (如: 顺风行贸易)" class="w-full p-2.5 rounded border">
-          <input type="text" v-model="newSubData.product_name" placeholder="货物描述 (如: 五金配件与防尘网)" class="w-full p-2.5 rounded border">
+          <input type="text" v-model="newSubData.customer_account" placeholder="客户查询账号 (如: CUST-YANG)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
+          <input type="text" v-model="newSubData.customer_name" placeholder="客户简称 / 抬头 (如: 顺风行贸易)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
+          <input type="text" v-model="newSubData.product_name" placeholder="货物描述 (如: 五金配件与防尘网)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           <div class="grid grid-cols-3 gap-2">
-            <input type="number" v-model="newSubData.weight" placeholder="重量(KG)" class="p-2.5 rounded border">
-            <input type="number" v-model="newSubData.volume" placeholder="体积(CBM)" class="p-2.5 rounded border">
-            <input type="number" v-model="newSubData.pieces" placeholder="件数" class="p-2.5 rounded border">
+            <input type="number" v-model="newSubData.weight" placeholder="重量(KG)" class="p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
+            <input type="number" v-model="newSubData.volume" placeholder="体积(CBM)" class="p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
+            <input type="number" v-model="newSubData.pieces" placeholder="件数" class="p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           </div>
         </div>
         <div class="flex space-x-2 pt-2">
-          <button @click="showAddSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 text-xs">取消</button>
-          <button @click="saveNewSub" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">保存关联</button>
+          <button @click="showAddSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-xl text-slate-600 text-xs font-semibold">取消</button>
+          <button @click="saveNewSub" class="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-xs">保存关联</button>
         </div>
       </div>
     </div>
 
     <!-- 模态框 3：更新单分箱物流进度 -->
-    <div v-if="showEditModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-4">
-      <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div class="flex justify-between items-center border-b pb-3">
+    <div v-if="showEditModal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-end sm:items-center justify-center p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto animate-scale-in">
+        <div class="flex justify-between items-center border-b border-slate-50 pb-3">
           <div>
             <h3 class="font-bold text-sm text-slate-800">更新运单物流节点</h3>
-            <p class="text-[10px] text-slate-400" v-if="editingSubProgress">
+            <p class="text-[10px] text-slate-400 font-mono" v-if="editingSubProgress">
               运单: {{ editingSubProgress.sub_id }}
             </p>
           </div>
-          <button @click="showEditModal = false" class="text-slate-400">✕</button>
+          <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
         </div>
 
         <div v-if="editingSubProgress" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">选择当前最新运输节点</label>
+            <label class="block text-[10px] font-bold text-slate-400 mb-2.5 uppercase tracking-wider">选择当前最新运输节点</label>
             <div class="grid grid-cols-2 gap-2">
               <button 
                 v-for="(stepName, idx) in getStepNamesForSub(editingSubProgress)" :key="idx" @click="setEditingStep(idx)" type="button"
-                class="p-2.5 rounded-lg border text-left text-xs font-semibold flex items-center justify-between transition"
-                :class="editingSubProgress.current_step === idx ? 'border-indigo-500 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-200' : 'border-slate-200 bg-white text-slate-600'"
+                class="p-2.5 rounded-xl border text-left text-xs font-bold flex items-center justify-between transition"
+                :class="editingSubProgress.current_step === idx ? 'border-teal-500 bg-teal-50/50 text-teal-800 ring-2 ring-teal-200' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
               >
                 <span>{{ idx + 1 }}. {{ stepName }}</span>
               </button>
@@ -408,109 +449,109 @@
 
           <!-- 手动文字备注 -->
           <div>
-            <label class="block text-xs font-bold text-slate-400 mb-1.5">追踪实况文字描述（客户同步看见，选填）</label>
+            <label class="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">追踪实况文字描述（客户同步看见，选填）</label>
             <textarea 
               v-model="editingSubProgress.steps[editingSubProgress.current_step].desc" 
-              placeholder="例如：集装箱已送达港口，海关系统已放行，正在安排装船..."
-              class="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 min-h-[70px] font-sans"
+              placeholder="例如：货品已送达广州南沙港口，海关系统已核验放行..."
+              class="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none min-h-[75px] font-sans"
             ></textarea>
           </div>
 
           <!-- 拍照上传 -->
           <div>
-            <label class="block text-xs font-bold text-slate-400 mb-2">现场拍照（调用手机摄像头或上传照片）</label>
+            <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">现场拍照（调用摄像头或上传照片）</label>
             <div class="flex items-center space-x-3">
-              <label class="cursor-pointer bg-slate-100 border-2 border-dashed rounded-xl w-24 h-24 flex flex-col justify-center items-center text-slate-500 relative overflow-hidden">
+              <label class="cursor-pointer bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl w-24 h-24 flex flex-col justify-center items-center text-slate-400 relative overflow-hidden transition">
                 <input type="file" accept="image/*" capture="environment" @change="onPhotoSelected" class="hidden">
-                <span v-if="!tempFile" class="text-[10px]">点击拍摄</span>
-                <span v-else class="text-[10px] text-indigo-600">已选取照片</span>
+                <span v-if="!tempFile" class="text-[10px] font-bold">点击拍摄</span>
+                <span v-else class="text-[10px] text-teal-600 font-bold">已选图 📷</span>
               </label>
-              <span v-if="uploading" class="text-xs text-amber-500">照片上传中...</span>
+              <span v-if="uploading" class="text-xs text-amber-500 font-semibold animate-pulse">正在上传实况图片...</span>
             </div>
           </div>
 
-          <button @click="saveSubProgressStatus" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-md">
-            同步更新进度
+          <button @click="saveSubProgressStatus" class="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-teal-600/10 text-xs">
+            同步更新进度并推送
           </button>
         </div>
       </div>
     </div>
 
     <!-- 模态框 4：修改拼箱子单信息 -->
-    <div v-if="showEditSubModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-800 border-b pb-2">修改货物详情数据</h3>
+    <div v-if="showEditSubModal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl animate-scale-in">
+        <h3 class="font-bold text-sm text-slate-800 border-b border-slate-50 pb-2">修改货物详情数据</h3>
         <div class="space-y-3 text-xs" v-if="editingSubData">
           <div>
             <label class="block text-slate-400 mb-1">分单号（只读）</label>
-            <input type="text" v-model="editingSubData.sub_id" disabled class="w-full p-2.5 rounded border bg-slate-50 text-slate-400 font-mono">
+            <input type="text" v-model="editingSubData.sub_id" disabled class="w-full p-2.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-400 font-mono">
           </div>
           <div>
             <label class="block text-slate-400 mb-1">客户查询账号</label>
-            <input type="text" v-model="editingSubData.customer_account" class="w-full p-2.5 rounded border">
+            <input type="text" v-model="editingSubData.customer_account" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           </div>
           <div>
             <label class="block text-slate-400 mb-1">客户简称</label>
-            <input type="text" v-model="editingSubData.customer_name" class="w-full p-2.5 rounded border">
+            <input type="text" v-model="editingSubData.customer_name" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           </div>
           <div>
             <label class="block text-slate-400 mb-1">货物描述</label>
-            <input type="text" v-model="editingSubData.product_name" class="w-full p-2.5 rounded border">
+            <input type="text" v-model="editingSubData.product_name" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           </div>
           <div class="grid grid-cols-3 gap-2">
             <div>
               <label class="block text-slate-400 mb-1">重量(KG)</label>
-              <input type="number" v-model="editingSubData.weight" class="w-full p-2 rounded border">
+              <input type="number" v-model="editingSubData.weight" class="w-full p-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
             </div>
             <div>
               <label class="block text-slate-400 mb-1">体积(CBM)</label>
-              <input type="number" v-model="editingSubData.volume" class="w-full p-2 rounded border">
+              <input type="number" v-model="editingSubData.volume" class="w-full p-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
             </div>
             <div>
               <label class="block text-slate-400 mb-1">件数</label>
-              <input type="number" v-model="editingSubData.pieces" class="w-full p-2 rounded border">
+              <input type="number" v-model="editingSubData.pieces" class="w-full p-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
             </div>
           </div>
         </div>
         <div class="flex space-x-2 pt-2">
-          <button @click="showEditSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 text-xs">取消</button>
-          <button @click="saveEditedSub" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">保存修改</button>
+          <button @click="showEditSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-xl text-slate-600 text-xs font-semibold">取消</button>
+          <button @click="saveEditedSub" class="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-xs">保存修改</button>
         </div>
       </div>
     </div>
 
     <!-- 模态框 5：添加新操作员账号 -->
-    <div v-if="showAddOperatorModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
-        <h3 class="font-bold text-base text-slate-800 border-b pb-2">添加操作员账号</h3>
+    <div v-if="showAddOperatorModal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl animate-scale-in">
+        <h3 class="font-bold text-sm text-slate-800 border-b border-slate-50 pb-2">添加操作员账号</h3>
         <div class="space-y-3 text-xs">
           <div>
             <label class="block text-slate-400 mb-1">用户名（英文或数字）</label>
-            <input type="text" v-model="newOperatorData.username" placeholder="如: op_alex" class="w-full p-2.5 rounded border">
+            <input type="text" v-model="newOperatorData.username" placeholder="如: op_alex" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           </div>
           <div>
             <label class="block text-slate-400 mb-1">密码</label>
-            <input type="text" v-model="newOperatorData.password" placeholder="请输入密码" class="w-full p-2.5 rounded border">
+            <input type="text" v-model="newOperatorData.password" placeholder="请输入密码" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           </div>
           <div>
             <label class="block text-slate-400 mb-1">角色权限</label>
-            <select v-model="newOperatorData.role" class="w-full p-2.5 rounded border bg-white">
+            <select v-model="newOperatorData.role" class="w-full p-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-teal-500 outline-none">
               <option value="operator">普通操作员</option>
               <option value="admin">系统管理员 (Admin)</option>
             </select>
           </div>
         </div>
         <div class="flex space-x-2 pt-2">
-          <button @click="showAddOperatorModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 text-xs">取消</button>
-          <button @click="saveNewOperator" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">创建账号</button>
+          <button @click="showAddOperatorModal = false" class="flex-1 py-2 bg-slate-100 rounded-xl text-slate-600 text-xs font-semibold">取消</button>
+          <button @click="saveNewOperator" class="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-xs">创建账号</button>
         </div>
       </div>
     </div>
 
     <!-- 模态框 6：后台登录 -->
-    <div v-if="showLoginModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-xl">
-        <h3 class="font-bold text-base text-slate-800 border-b pb-2 flex items-center">
+    <div v-if="showLoginModal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl animate-scale-in">
+        <h3 class="font-bold text-sm text-slate-800 border-b border-slate-50 pb-2 flex items-center">
           <span class="mr-2">🔑</span> 工作台登录校验
         </h3>
         <div class="space-y-3 text-xs">
@@ -520,7 +561,7 @@
               type="text" 
               v-model="loginForm.username" 
               placeholder="请输入管理员或操作员账号" 
-              class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+              class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs font-mono"
               @keyup.enter="submitLogin"
             >
           </div>
@@ -530,16 +571,16 @@
               type="password" 
               v-model="loginForm.password" 
               placeholder="请输入对应密码" 
-              class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+              class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs font-mono"
               @keyup.enter="submitLogin"
             >
           </div>
         </div>
         <div class="flex space-x-2 pt-2">
-          <button @click="showLoginModal = false" class="flex-1 py-2.5 bg-slate-100 rounded-lg text-slate-600 text-xs">
+          <button @click="showLoginModal = false" class="flex-1 py-2 bg-slate-100 rounded-xl text-slate-600 text-xs font-semibold">
             取消
           </button>
-          <button @click="submitLogin" class="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition">
+          <button @click="submitLogin" class="flex-1 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-xl font-bold text-xs shadow-xs transition">
             验证并进入
           </button>
         </div>
@@ -547,8 +588,8 @@
     </div>
 
     <!-- 8. 大图预览 -->
-    <div v-if="zoomedPhoto" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" @click="zoomedPhoto = null">
-      <img :src="zoomedPhoto" class="max-w-full max-h-[85vh] rounded-lg object-contain">
+    <div v-if="zoomedPhoto" class="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center p-4" @click="zoomedPhoto = null">
+      <img :src="zoomedPhoto" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl">
     </div>
 
   </div>
@@ -768,9 +809,9 @@
 
         const getShippingTypeBadge = (type) => {
           const types = {
-            sea: { name: '海运 🚢', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-            air: { name: '空运 ✈️', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
-            land: { name: '陆运 🚚', color: 'bg-amber-50 text-amber-700 border-amber-200' }
+            sea: { name: '海运 🚢', color: 'bg-teal-50 text-teal-700 border-teal-200/50' },
+            air: { name: '空运 ✈️', color: 'bg-sky-50 text-sky-700 border-sky-200/50' },
+            land: { name: '陆运 🚚', color: 'bg-amber-50 text-amber-700 border-amber-200/50' }
           };
           return types[type] || { name: '未知 📦', color: 'bg-slate-50 text-slate-700 border-slate-200' };
         };
