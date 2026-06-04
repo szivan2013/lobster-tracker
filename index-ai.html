@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agnes AI 智能多模态助手</title>
+    <title>Agnes AI 智能多模态助手 (黄金比例版)</title>
     <!-- 引入 Tailwind CSS & Typography 插件 -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <!-- 引入 Marked 用于解析 Markdown -->
@@ -47,7 +47,6 @@
             <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
         </button>
         <h1 id="mobileTitle" class="text-sm font-semibold truncate max-w-[120px]">当前对话</h1>
-        <!-- 移动端简易模型选择 -->
         <select id="mobileModelSelect" onchange="changeModel(this.value)" class="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white">
             <option value="agnes-2.0-flash">💬 文本对话</option>
             <option value="agnes-image-2.1-flash">🎨 图片生成</option>
@@ -55,7 +54,7 @@
         </select>
     </div>
 
-    <!-- 侧边栏 (ChatGPT 风格) -->
+    <!-- 侧边栏 -->
     <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 w-64 bg-gray-950 text-gray-200 flex flex-col z-30 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 border-r border-gray-800">
         <div class="p-4 border-b border-gray-800 flex items-center justify-between">
             <button onclick="createNewChat()" class="flex-1 flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
@@ -67,7 +66,61 @@
             </button>
         </div>
 
+        <!-- 历史会话列表 -->
         <div class="flex-1 overflow-y-auto p-2 space-y-1" id="chatListContainer"></div>
+
+        <!-- 高级图像配置参数面板 -->
+        <div id="imageSettingsPanel" class="hidden p-4 border-t border-gray-800 bg-gray-900/40 space-y-3">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">图像生成参数</h3>
+            
+            <!-- 比例选择 (已加入 3:2, 4:3, 修正为 9:16) -->
+            <div>
+                <label class="block text-[11px] text-gray-400 mb-1">画面比例 (Aspect Ratio)</label>
+                <select id="aspectRatioSelect" class="w-full bg-gray-950 border border-gray-800 text-gray-200 rounded px-2.5 py-1.5 text-xs outline-none focus:border-blue-500">
+                    <option value="1024x1024">1:1 正方形 (1024x1024)</option>
+                    <option value="768x1344">9:16 移动竖屏 (768x1344)</option>
+                    <option value="1152x768">3:2 经典横画幅 (1152x768)</option>
+                    <option value="768x1152">2:3 经典竖画幅 (768x1152)</option>
+                    <option value="1024x768">4:3 标准横画幅 (1024x768)</option>
+                    <option value="768x1024">3:4 标准竖画幅 (768x1024)</option>
+                    <option value="1344x768">16:9 电影宽画幅 (1344x768)</option>
+                </select>
+            </div>
+
+            <!-- 图生图参考图 URL -->
+            <div>
+                <label class="block text-[11px] text-gray-400 mb-1">参考图 URL (图生图可选)</label>
+                <input type="text" id="refImageUrl" placeholder="粘贴网络图片 URL" 
+                       class="w-full bg-gray-950 border border-gray-800 text-gray-200 rounded px-2.5 py-1.5 text-xs outline-none focus:border-blue-500 placeholder-gray-600">
+                <span class="text-[9px] text-gray-500 block mt-0.5">提供参考图后将开启图生图模式。</span>
+            </div>
+        </div>
+
+        <!-- 高级视频配置参数面板 (新增) -->
+        <div id="videoSettingsPanel" class="hidden p-4 border-t border-gray-800 bg-gray-900/40 space-y-3">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">视频生成参数</h3>
+            
+            <!-- 视频比例选择 -->
+            <div>
+                <label class="block text-[11px] text-gray-400 mb-1">画面比例 (Aspect Ratio)</label>
+                <select id="videoRatioSelect" class="w-full bg-gray-950 border border-gray-800 text-gray-200 rounded px-2.5 py-1.5 text-xs outline-none focus:border-blue-500">
+                    <option value="16:9">16:9 电影宽屏 (横屏)</option>
+                    <option value="9:16">9:16 移动竖屏 (抖音/TikTok)</option>
+                    <option value="1:1">1:1 社交媒体 (正方形)</option>
+                    <option value="4:3">4:3 传统屏幕比例</option>
+                    <option value="3:2">3:2 相机视觉比例</option>
+                </select>
+            </div>
+
+            <!-- 视频画质与分辨率选择 -->
+            <div>
+                <label class="block text-[11px] text-gray-400 mb-1">清晰度与分辨率 (Resolution)</label>
+                <select id="videoResolutionSelect" class="w-full bg-gray-950 border border-gray-800 text-gray-200 rounded px-2.5 py-1.5 text-xs outline-none focus:border-blue-500">
+                    <option value="720p">720p HD (渲染极快/推荐)</option>
+                    <option value="1080p">1080p Full HD (高精细节)</option>
+                </select>
+            </div>
+        </div>
 
         <div class="p-4 border-t border-gray-800 space-y-2">
             <button onclick="openSettingsModal()" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-900 rounded-lg transition-colors text-sm text-gray-300 hover:text-white">
@@ -86,7 +139,6 @@
         <header class="hidden lg:flex h-14 border-b border-gray-100 items-center px-6 justify-between bg-white z-10">
             <span id="headerChatTitle" class="font-semibold text-gray-800 text-sm">新对话</span>
             
-            <!-- 顶栏模型选择下拉框 -->
             <div class="flex items-center gap-2">
                 <span class="text-xs text-gray-500 font-medium">当前模型：</span>
                 <select id="headerModelSelect" onchange="changeModel(this.value)" class="text-xs font-semibold border border-gray-200 rounded-lg px-3 py-1.5 bg-slate-50 text-slate-700 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500">
@@ -158,6 +210,8 @@
             document.getElementById('headerModelSelect').value = config.modelName;
             document.getElementById('mobileModelSelect').value = config.modelName;
 
+            updateSidebarPanels(config.modelName);
+
             if (conversations.length === 0) {
                 createNewChat();
             } else {
@@ -173,6 +227,25 @@
             localStorage.setItem('agnes_multi_config', JSON.stringify(config));
             document.getElementById('headerModelSelect').value = val;
             document.getElementById('mobileModelSelect').value = val;
+
+            updateSidebarPanels(val);
+        }
+
+        // 动态展示特定模型的配置面板
+        function updateSidebarPanels(model) {
+            const imgPanel = document.getElementById('imageSettingsPanel');
+            const videoPanel = document.getElementById('videoSettingsPanel');
+            
+            if (model === 'agnes-image-2.1-flash') {
+                imgPanel.classList.remove('hidden');
+                videoPanel.classList.add('hidden');
+            } else if (model === 'agnes-video-v2.0') {
+                videoPanel.classList.remove('hidden');
+                imgPanel.classList.add('hidden');
+            } else {
+                imgPanel.classList.add('hidden');
+                videoPanel.classList.add('hidden');
+            }
         }
 
         function createNewChat() {
@@ -261,7 +334,6 @@
             scrollToBottom();
         }
 
-        // 核心：自适应渲染媒体或文本消息
         function appendMessageBubble(role, content, type, mediaUrl, isPending) {
             const container = document.getElementById('chatMessageArea');
             const placeholder = container.querySelector('.flex-grow');
@@ -288,16 +360,15 @@
                 } else {
                     if (type === 'image' && mediaUrl) {
                         bubble.innerHTML = `<div class="space-y-2">
-                            <img src="${mediaUrl}" alt="Generated Image" class="rounded-lg max-w-full h-auto shadow-sm max-h-[400px]">
+                            <img src="${mediaUrl}" alt="Generated Image" class="rounded-lg max-w-full h-auto shadow-sm max-h-[500px]">
                             <p class="text-xs text-gray-400 mt-1">Prompt: ${content}</p>
                         </div>`;
                     } else if (type === 'video' && mediaUrl) {
                         bubble.innerHTML = `<div class="space-y-2">
-                            <video src="${mediaUrl}" controls class="rounded-lg max-w-full shadow-sm max-h-[400px]"></video>
+                            <video src="${mediaUrl}" controls class="rounded-lg max-w-full shadow-sm max-h-[500px]"></video>
                             <p class="text-xs text-gray-400 mt-1">Prompt: ${content}</p>
                         </div>`;
                     } else {
-                        // 文本 Markdown 解析
                         bubble.className += " prose prose-slate prose-sm";
                         bubble.innerHTML = marked.parse(content);
                     }
@@ -308,7 +379,6 @@
             container.appendChild(wrapper);
         }
 
-        // 5. 对话提交处理主入口
         async function handleSendMessage() {
             const input = document.getElementById('promptInput');
             const prompt = input.value.trim();
@@ -330,7 +400,6 @@
             appendMessageBubble('assistant', '', null, null, true);
             scrollToBottom();
 
-            // 根据模型分流请求逻辑
             try {
                 if (config.modelName === 'agnes-image-2.1-flash') {
                     await handleImageGeneration(prompt, activeChat);
@@ -348,7 +417,7 @@
             }
         }
 
-        // 5.1 文本对话流式传输
+        // 文本模型流式处理
         async function handleTextStreaming(activeChat) {
             const response = await fetch(`${config.baseUrl}/chat/completions`, {
                 method: 'POST',
@@ -408,19 +477,32 @@
             toggleSendButtonState(false);
         }
 
-        // 5.2 图像生成同步处理
+        // 图像生成功能 (深度融合了比例参数与图生图)
         async function handleImageGeneration(prompt, activeChat) {
+            const size = document.getElementById('aspectRatioSelect').value;
+            const refImg = document.getElementById('refImageUrl').value.trim();
+
+            const payload = {
+                model: config.modelName,
+                prompt: prompt,
+                size: size
+            };
+
+            if (refImg) {
+                payload.tags = ["img2img"];
+                payload.extra_body = {
+                    image: [ refImg ],
+                    response_format: "url"
+                };
+            }
+
             const response = await fetch(`${config.baseUrl}/images/generations`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${config.apiKey}`
                 },
-                body: JSON.stringify({
-                    model: config.modelName,
-                    prompt: prompt,
-                    size: '1024x1024'
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -433,9 +515,11 @@
 
             if (!imageUrl) throw new Error("接口未返回图片URL。");
 
+            document.getElementById('refImageUrl').value = '';
+
             activeChat.messages.push({ 
                 role: 'assistant', 
-                content: prompt, 
+                content: prompt + (refImg ? " (图生图模式)" : ` (比例: ${size})`), 
                 type: 'image', 
                 mediaUrl: imageUrl 
             });
@@ -443,9 +527,30 @@
             toggleSendButtonState(false);
         }
 
-        // 5.3 视频生成异步任务 + 轮询处理
+        // 辅助函数：根据比例和清晰度计算视频物理像素 width & height
+        function getVideoDimensions(ratio, resolution) {
+            if (resolution === '1080p') {
+                if (ratio === '16:9') return { width: 1920, height: 1080 };
+                if (ratio === '9:16') return { width: 1080, height: 1920 };
+                if (ratio === '1:1') return { width: 1080, height: 1080 };
+                if (ratio === '4:3') return { width: 1440, height: 1080 };
+                if (ratio === '3:2') return { width: 1620, height: 1080 };
+            } else { // 默认 720p 档位
+                if (ratio === '16:9') return { width: 1280, height: 720 };
+                if (ratio === '9:16') return { width: 720, height: 1280 };
+                if (ratio === '1:1') return { width: 768, height: 768 };
+                if (ratio === '4:3') return { width: 960, height: 720 };
+                if (ratio === '3:2') return { width: 1080, height: 720 };
+            }
+            return { width: 1152, height: 768 }; // 备用降级像素
+        }
+
+        // 视频生成 (集成高级比例和 720P/1080P 自适应解析)
         async function handleVideoGeneration(prompt, activeChat) {
-            // Step 1: 创建视频任务
+            const ratio = document.getElementById('videoRatioSelect').value;
+            const resolution = document.getElementById('videoResolutionSelect').value;
+            const { width, height } = getVideoDimensions(ratio, resolution);
+
             const response = await fetch(`${config.baseUrl}/videos`, {
                 method: 'POST',
                 headers: {
@@ -454,7 +559,9 @@
                 },
                 body: JSON.stringify({
                     model: config.modelName,
-                    prompt: prompt
+                    prompt: prompt,
+                    width: width,   // 宽度像素
+                    height: height  // 高度像素
                 })
             });
 
@@ -470,22 +577,18 @@
 
             const pending = document.getElementById('pending-bubble');
 
-            // Step 2: 开启轮询逻辑
-            let pollCount = 0;
-            const pollInterval = setInterval(async () => {
-                pollCount++;
+            let pollInterval = setInterval(async () => {
                 try {
                     const statusRes = await fetch(`${config.baseUrl}/videos/${taskId}`, {
                         headers: { 'Authorization': `Bearer ${config.apiKey}` }
                     });
                     
                     if (!statusRes.ok) throw new Error(`查询状态失败 (${statusRes.status})`);
-                    
                     const statusData = await statusRes.json();
                     
                     if (statusData.status === 'completed') {
                         clearInterval(pollInterval);
-                        const videoUrl = statusData.remixed_from_video_id; // 官方返回体存放视频URL的字段
+                        const videoUrl = statusData.remixed_from_video_id;
                         
                         activeChat.messages.push({
                             role: 'assistant',
@@ -498,10 +601,9 @@
 
                     } else if (statusData.status === 'failed') {
                         clearInterval(pollInterval);
-                        pending.innerHTML = `<span class="text-red-500 font-medium">视频渲染失败: ${statusData.error || '服务器端渲染异常'}</span>`;
+                        pending.innerHTML = `<span class="text-red-500 font-medium">视频渲染失败: ${statusData.error || '渲染异常'}</span>`;
                         toggleSendButtonState(false);
                     } else {
-                        // 排队或生成中
                         const progress = statusData.progress !== undefined ? `${statusData.progress}%` : '排队中...';
                         pending.innerHTML = `<div class="flex items-center gap-2.5 text-slate-500">
                             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -513,10 +615,9 @@
                     pending.innerHTML = `<span class="text-red-500 font-medium">轮询中断: ${e.message}</span>`;
                     toggleSendButtonState(false);
                 }
-            }, 4000); // 4秒轮询一次
+            }, 4000);
         }
 
-        // 6. 工具辅助函数
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
@@ -574,7 +675,7 @@
             config.baseUrl = document.getElementById('baseUrl').value.trim();
             localStorage.setItem('agnes_multi_config', JSON.stringify(config));
             closeSettingsModal();
-            alert('配置已成功保存！');
+            alert('配置已保存！');
         }
     </script>
 </body>
