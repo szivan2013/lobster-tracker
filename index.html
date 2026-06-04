@@ -301,20 +301,50 @@
             ></textarea>
           </div>
 
-          <!-- 拍照上传 -->
+          <!-- 优化改造：多渠道照片上传/现场拍照 -->
           <div>
-            <label class="block text-xs font-bold text-slate-400 mb-2">现场拍照（调用摄像头）</label>
-            <div class="flex items-center space-x-3">
-              <label class="cursor-pointer bg-slate-100 border-2 border-dashed rounded-xl w-24 h-24 flex flex-col justify-center items-center text-slate-500 relative overflow-hidden">
-                <input type="file" accept="image/*" capture="environment" @change="onPhotoSelected" class="hidden">
-                <span v-if="!tempFile" class="text-[10px]">点击拍摄</span>
-                <span v-else class="text-[10px] text-emerald-600">已选好照片</span>
-              </label>
-              <span v-if="uploading" class="text-xs text-amber-500">正在上传至云存储...</span>
+            <label class="block text-xs font-bold text-slate-400 mb-2">现场照片（支持直接拍照或上传手机/电脑图片）</label>
+            <div class="flex flex-col space-y-3">
+              <div class="flex items-center space-x-3">
+                
+                <!-- 渠道 1：直接开启手机摄像头拍照 -->
+                <label class="cursor-pointer bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl w-24 h-24 flex flex-col justify-center items-center text-slate-500 relative transition">
+                  <input type="file" accept="image/*" capture="environment" @change="onPhotoSelected" class="hidden">
+                  <span class="text-xl">📷</span>
+                  <span class="text-[10px] mt-1 font-bold text-slate-600">现场拍照</span>
+                </label>
+
+                <!-- 渠道 2：选择手机相册或电脑本地图片文件 -->
+                <label class="cursor-pointer bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl w-24 h-24 flex flex-col justify-center items-center text-slate-500 relative transition">
+                  <input type="file" accept="image/*" @change="onPhotoSelected" class="hidden">
+                  <span class="text-xl">📁</span>
+                  <span class="text-[10px] mt-1 font-bold text-slate-600">选择文件</span>
+                </label>
+
+                <!-- 新增：待上传图片即时本地预览 -->
+                <div v-if="tempFilePreview" class="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
+                  <img :src="tempFilePreview" class="w-full h-full object-cover">
+                  <button @click="clearSelectedPhoto" type="button" class="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 text-[8px] leading-none">
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <!-- 图片状态提示文字 -->
+              <div class="flex justify-between items-center text-[11px]">
+                <span v-if="tempFile" class="text-emerald-600 font-semibold truncate max-w-[280px]">
+                  📎 已选择: {{ tempFile.name }}
+                </span>
+                <span v-else-if="editingSubProgress.steps[editingSubProgress.current_step]?.photo" class="text-slate-400">
+                  ℹ️ 该步骤已有云端照片，重新拍照或选择文件将进行覆盖。
+                </span>
+                <span v-else class="text-slate-400">暂未选择新照片</span>
+                <span v-if="uploading" class="text-amber-500 animate-pulse font-bold">正在上传...</span>
+              </div>
             </div>
           </div>
 
-          <button @click="saveSubProgressStatus" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md">
+          <button @click="saveSubProgressStatus" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-emerald-700 transition">
             同步更新进度
           </button>
         </div>
@@ -474,6 +504,7 @@
         const showEditModal = ref(false);
         const editingSubProgress = ref(null); // 指向当前正在单独更新进度的拼箱客户
         const tempFile = ref(null);
+        const tempFilePreview = ref(''); // 本地图片预览 URL
         const uploading = ref(false);
 
         const showAddSubModal = ref(false);
@@ -679,6 +710,7 @@
 
           editingSubProgress.value = clonedSub;
           tempFile.value = null;
+          tempFilePreview.value = ''; // 重置预览链接
           showEditModal.value = true;
         };
 
@@ -686,9 +718,26 @@
           editingSubProgress.value.current_step = idx;
         };
 
+        // 处理文件/照片的选择
         const onPhotoSelected = (e) => {
           const file = e.target.files[0];
-          if (file) tempFile.value = file;
+          if (file) {
+            tempFile.value = file;
+            // 释放之前生成的 ObjectURL 避免内存泄漏
+            if (tempFilePreview.value.startsWith('blob:')) {
+              URL.revokeObjectURL(tempFilePreview.value);
+            }
+            tempFilePreview.value = URL.createObjectURL(file);
+          }
+        };
+
+        // 清除选定的本地照片
+        const clearSelectedPhoto = () => {
+          tempFile.value = null;
+          if (tempFilePreview.value.startsWith('blob:')) {
+            URL.revokeObjectURL(tempFilePreview.value);
+          }
+          tempFilePreview.value = '';
         };
 
         // 单独保存每个客户货物的清关与派送进度
@@ -911,7 +960,7 @@
         return {
           currentRole, currentView, searchQuery, activeSub, activeMaster, zoomedPhoto,
           masterWaybills, subWaybills, customerConsignments, showEditModal, editingSubProgress,
-          tempFile, uploading, showAddSubModal, newSubData, stepNames,
+          tempFile, tempFilePreview, clearSelectedPhoto, uploading, showAddSubModal, newSubData, stepNames,
           showLoginModal, loginForm, submitLogin, editSubProgress, saveSubProgressStatus,
           showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster, 
           getStepDescription, getStepName, getMasterWaybill, getSubsForMaster,
