@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://api.agnes-ai.com/v1/:path*"
+      "destination": "https://apihub.agnes-ai.com/v1/:path*"
     },
     {
       "source": "/(.*)",
