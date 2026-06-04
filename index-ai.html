@@ -3,262 +3,493 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agnes AI 2.0 客户端</title>
-    <!-- 引入 Tailwind CSS 构建干净的界面 -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Agnes AI 智能助手</title>
+    <!-- 引入 Tailwind CSS (含 Typography 插件以渲染漂亮的 Markdown 代码/列表) -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <!-- 引入 Marked 用于解析 Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* 优化代码块及行内代码的样式 */
+        .prose pre {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+            padding: 1rem !important;
+            border-radius: 0.5rem !important;
+            overflow-x: auto;
+        }
+        .prose code {
+            color: #ef4444;
+            font-weight: 500;
+        }
+        .prose pre code {
+            color: #f8fafc !important;
+            background-color: transparent !important;
+            padding: 0 !important;
+            font-weight: normal;
+        }
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+<body class="bg-gray-50 text-gray-800 min-h-screen flex overflow-hidden">
 
-    <!-- 导航栏 -->
-    <header class="bg-white border-b border-gray-200 py-4 px-6 shadow-sm">
-        <div class="max-w-6xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold text-gray-900">Agnes AI 2.0 客户端</h1>
-            <span class="text-sm text-gray-500">直连官方网关版 (已支持流式输出)</span>
+    <!-- 移动端顶部导航栏 (仅在小屏幕显示) -->
+    <div class="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-20">
+        <button onclick="toggleSidebar(true)" class="p-2 hover:bg-gray-100 rounded-lg">
+            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <h1 id="mobileTitle" class="text-sm font-semibold truncate max-w-[200px]">当前对话</h1>
+        <button onclick="createNewChat()" class="p-2 hover:bg-gray-100 rounded-lg text-blue-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        </button>
+    </div>
+
+    <!-- 侧边栏 (ChatGPT 风格 dark 主题) -->
+    <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 w-64 bg-gray-950 text-gray-200 flex flex-col z-30 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 border-r border-gray-800">
+        <!-- 侧边栏顶部: 新建对话 -->
+        <div class="p-4 border-b border-gray-800 flex items-center justify-between">
+            <button onclick="createNewChat()" class="flex-1 flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                新建对话
+            </button>
+            <button onclick="toggleSidebar(false)" class="lg:hidden ml-2 p-2 hover:bg-gray-800 rounded-lg">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
         </div>
-    </header>
 
-    <!-- 主体区域 -->
-    <main class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- 侧边栏中部: 历史对话列表 -->
+        <div class="flex-1 overflow-y-auto p-2 space-y-1" id="chatListContainer">
+            <!-- 动态渲染历史对话 -->
+        </div>
+
+        <!-- 侧边栏底部: 设置与关于 -->
+        <div class="p-4 border-t border-gray-800 space-y-2">
+            <button onclick="openSettingsModal()" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-900 rounded-lg transition-colors text-sm text-gray-300 hover:text-white">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                API 配置与设置
+            </button>
+        </div>
+    </aside>
+
+    <!-- 遮罩层 (移动端侧边栏展开时) -->
+    <div id="sidebarOverlay" onclick="toggleSidebar(false)" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20"></div>
+
+    <!-- 右侧主对话区 -->
+    <main class="flex-grow flex flex-col h-screen pt-14 lg:pt-0 relative bg-white">
         
-        <!-- 左侧配置面板 -->
-        <section class="lg:col-span-1 bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
-            <h2 class="text-lg font-semibold text-gray-700 border-b pb-2">API 配置</h2>
-            
-            <!-- API Key -->
-            <div>
-                <label class="block text-sm font-medium text-gray-600 mb-1">API Key</label>
-                <input type="password" id="apiKey" value="sk-7Hs6a8wx78gpfAJB6XNQKIipv5UO1Km6PgLsVBubAZSyPUjN" placeholder="输入您的 API Key" 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-            </div>
+        <!-- 顶部对话状态 -->
+        <header class="hidden lg:flex h-14 border-b border-gray-100 items-center px-6 justify-between bg-white z-10">
+            <span id="headerChatTitle" class="font-semibold text-gray-800 text-sm">选择或新建一个对话</span>
+            <span id="currentModelBadge" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">agnes-2.0-flash</span>
+        </header>
 
-            <!-- Base URL -->
-            <div>
-                <label class="block text-sm font-medium text-gray-600 mb-1">API Base URL</label>
-                <input type="text" id="baseUrl" value="https://apihub.agnes-ai.com/v1" placeholder="例如: https://apihub.agnes-ai.com/v1" 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                <p class="text-xs text-gray-400 mt-1">已默认设置为官方可用网关</p>
-            </div>
+        <!-- 消息气泡展示区 -->
+        <div id="chatMessageArea" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col">
+            <!-- 气泡动态填充 -->
+        </div>
 
-            <!-- 模型名称 -->
-            <div>
-                <label class="block text-sm font-medium text-gray-600 mb-1">模型名称 (Model)</label>
-                <input type="text" id="modelName" value="agnes-2.0-flash" placeholder="例如: agnes-2.0-flash" 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-            </div>
-
-            <!-- 输出模式 -->
-            <div>
-                <label class="block text-sm font-medium text-gray-600 mb-1">输出模式</label>
-                <div class="flex items-center space-x-2 mt-2">
-                    <input type="checkbox" id="useStream" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                    <label for="useStream" class="text-sm text-gray-700 font-medium select-none">启用流式输出 (Stream)</label>
-                </div>
-            </div>
-        </section>
-
-        <!-- 右侧交互区域 -->
-        <section class="lg:col-span-3 flex flex-col space-y-4">
-            
-            <!-- 输入区域 -->
-            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
-                <h2 class="text-lg font-semibold text-gray-700 border-b pb-2">输入提示词 (Prompt)</h2>
-                
-                <textarea id="promptInput" rows="4" placeholder="请在这里输入您的提示词，例如：请写一首关于春天的诗。" 
-                          class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                
-                <div class="flex justify-end">
-                    <button id="submitBtn" onclick="handleSubmit()" 
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors focus:outline-none">
-                        发送请求
+        <!-- 底部输入栏 -->
+        <div class="border-t border-gray-100 bg-white p-4">
+            <div class="max-w-3xl mx-auto relative flex flex-col space-y-2">
+                <!-- 输入框及控制按钮 -->
+                <div class="flex items-end gap-2 border border-gray-200 rounded-xl p-2 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 bg-white">
+                    <textarea id="promptInput" rows="1" oninput="autoResizeTextarea(this)" placeholder="向 Agnes AI 发送消息..." 
+                              class="flex-grow resize-none max-h-40 outline-none px-2 py-1.5 text-sm bg-transparent"
+                              onkeydown="handleEnterKey(event)"></textarea>
+                    <button id="sendBtn" onclick="handleSendMessage()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors flex-shrink-0">
+                        <svg class="w-4 h-4 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
                     </button>
                 </div>
-            </div>
-
-            <!-- 输出区域 -->
-            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex-grow flex flex-col min-h-[300px]">
-                <h2 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-4">生成结果</h2>
-                
-                <!-- Loading 动画 -->
-                <div id="loading" class="hidden flex justify-center items-center py-4">
-                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                    <span class="text-gray-500 text-sm ml-2">连接模型中...</span>
-                </div>
-
-                <!-- 结果展示框 -->
-                <div id="outputContainer" class="flex-grow overflow-auto p-4 bg-gray-50 rounded-lg border border-gray-100 min-h-[200px]">
-                    <div id="placeholderText" class="text-gray-400 text-center py-12">等待生成结果...</div>
-                    <div id="textOutput" class="hidden whitespace-pre-wrap text-gray-700 leading-relaxed"></div>
+                <div class="text-[10px] text-gray-400 text-center">
+                    对话数据和密钥均保存在您浏览器的 LocalStorage 中。
                 </div>
             </div>
-        </section>
+        </div>
     </main>
 
-    <!-- 页脚 -->
-    <footer class="bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-400">
-        已成功适配直接请求安全通道。
-    </footer>
-
-    <!-- 交互逻辑 JS -->
-    <script>
-        async function handleSubmit() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const baseUrl = document.getElementById('baseUrl').value.trim();
-            const modelName = document.getElementById('modelName').value.trim();
-            const prompt = document.getElementById('promptInput').value.trim();
-            const useStream = document.getElementById('useStream').checked;
-
-            if (!apiKey) {
-                alert('请先输入您的 API Key');
-                return;
-            }
-            if (!prompt) {
-                alert('请输入提示词');
-                return;
-            }
-
-            showLoading(true);
-            resetOutputs();
-
-            try {
-                if (useStream) {
-                    await callTextAPIStream(baseUrl, apiKey, modelName, prompt);
-                } else {
-                    await callTextAPINonStream(baseUrl, apiKey, modelName, prompt);
-                }
-            } catch (error) {
-                showError(error.message);
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // 辅助函数：格式化请求接口地址
-        function getRequestUrl(baseUrl) {
-            let url = baseUrl;
-            if (url.endsWith('/')) {
-                url = url.slice(0, -1);
-            }
-            return `${url}/chat/completions`;
-        }
-
-        // 1. 流式调用 (Streaming Output)
-        async function callTextAPIStream(baseUrl, apiKey, model, prompt) {
-            const fetchUrl = getRequestUrl(baseUrl);
+    <!-- 设置模态框 -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-base font-semibold text-gray-800">API 接口与参数设置</h3>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
             
-            const response = await fetch(fetchUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: model,
-                    messages: [{ role: 'user', content: prompt }],
-                    stream: true
-                })
+            <div class="space-y-3">
+                <!-- API Key -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">API Key</label>
+                    <input type="password" id="apiKey" placeholder="sk-..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                </div>
+
+                <!-- Base URL -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">API Base URL</label>
+                    <input type="text" id="baseUrl" placeholder="https://apihub.agnes-ai.com/v1" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                </div>
+
+                <!-- Model Name -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">模型名称 (Model)</label>
+                    <input type="text" id="modelName" placeholder="agnes-2.0-flash" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t pt-3">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 border border-gray-200 text-xs rounded-lg hover:bg-gray-50">取消</button>
+                <button onclick="saveSettings()" class="px-4 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700">保存修改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 交互脚本 -->
+    <script>
+        // 1. 初始化变量与 LocalStorage
+        let conversations = JSON.parse(localStorage.getItem('agnes_conversations')) || [];
+        let activeId = localStorage.getItem('agnes_active_id') || null;
+        let config = JSON.parse(localStorage.getItem('agnes_config')) || {
+            apiKey: 'sk-7Hs6a8wx78gpfAJB6XNQKIipv5UO1Km6PgLsVBubAZSyPUjN',
+            baseUrl: 'https://apihub.agnes-ai.com/v1',
+            modelName: 'agnes-2.0-flash'
+        };
+
+        // 页面首次载入逻辑
+        window.onload = function() {
+            // 装载配置输入框
+            document.getElementById('apiKey').value = config.apiKey;
+            document.getElementById('baseUrl').value = config.baseUrl;
+            document.getElementById('modelName').value = config.modelName;
+            document.getElementById('currentModelBadge').innerText = config.modelName;
+
+            // 检查是否有历史对话，若没有则自动新建一个
+            if (conversations.length === 0) {
+                createNewChat();
+            } else {
+                if (!activeId || !conversations.some(c => c.id === activeId)) {
+                    activeId = conversations[0].id;
+                }
+                renderSidebarList();
+                renderActiveMessages();
+            }
+        };
+
+        // 2. 对话管理 (增删查改)
+        function createNewChat() {
+            const newId = 'chat_' + Date.now();
+            const newChat = {
+                id: newId,
+                title: '新建对话',
+                messages: []
+            };
+            conversations.unshift(newChat);
+            activeId = newId;
+            saveAndRefresh();
+            toggleSidebar(false);
+            
+            // 聚焦输入框
+            document.getElementById('promptInput').focus();
+        }
+
+        function switchConversation(id) {
+            activeId = id;
+            saveAndRefresh();
+            toggleSidebar(false);
+        }
+
+        function deleteConversation(e, id) {
+            e.stopPropagation(); // 阻止触发切换对话事件
+            if (confirm('确认删除当前对话吗？')) {
+                conversations = conversations.filter(c => c.id !== id);
+                if (activeId === id) {
+                    activeId = conversations.length > 0 ? conversations[0].id : null;
+                }
+                if (conversations.length === 0) {
+                    createNewChat();
+                } else {
+                    saveAndRefresh();
+                }
+            }
+        }
+
+        function saveAndRefresh() {
+            localStorage.setItem('agnes_conversations', JSON.stringify(conversations));
+            localStorage.setItem('agnes_active_id', activeId);
+            renderSidebarList();
+            renderActiveMessages();
+        }
+
+        // 3. 渲染视图层
+        function renderSidebarList() {
+            const container = document.getElementById('chatListContainer');
+            container.innerHTML = '';
+
+            conversations.forEach(chat => {
+                const isActive = chat.id === activeId;
+                const activeClasses = isActive ? 'bg-gray-900 border-gray-800 text-white' : 'hover:bg-gray-900/50 border-transparent text-gray-400 hover:text-gray-200';
+                
+                const item = document.createElement('div');
+                item.className = `flex items-center justify-between group p-2.5 rounded-lg border text-sm cursor-pointer transition-all ${activeClasses}`;
+                item.onclick = () => switchConversation(chat.id);
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span class="truncate pr-2 font-medium">${chat.title}</span>
+                    </div>
+                    <button onclick="deleteConversation(event, '${chat.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-800 rounded text-gray-500 hover:text-red-400 transition-opacity">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function renderActiveMessages() {
+            const activeChat = conversations.find(c => c.id === activeId);
+            const container = document.getElementById('chatMessageArea');
+            const headerTitle = document.getElementById('headerChatTitle');
+            const mobileTitle = document.getElementById('mobileTitle');
+
+            container.innerHTML = '';
+
+            if (!activeChat) {
+                headerTitle.innerText = '暂无对话';
+                mobileTitle.innerText = '暂无对话';
+                return;
+            }
+
+            headerTitle.innerText = activeChat.title;
+            mobileTitle.innerText = activeChat.title;
+
+            if (activeChat.messages.length === 0) {
+                container.innerHTML = `
+                    <div class="flex-grow flex flex-col justify-center items-center text-gray-400 space-y-2">
+                        <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <p class="text-sm font-medium">新话题已准备就绪，发送一条消息开始吧！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            activeChat.messages.forEach(msg => {
+                appendMessageBubble(msg.role, msg.content, false);
             });
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error?.message || `请求失败，目标URL: ${fetchUrl}，状态码: ${response.status}`);
+            scrollToBottom();
+        }
+
+        // 渲染单条气泡到页面
+        function appendMessageBubble(role, content, isStreaming) {
+            const container = document.getElementById('chatMessageArea');
+            
+            // 移开占位空白提示
+            const placeholder = container.querySelector('.flex-grow');
+            if (placeholder) placeholder.remove();
+
+            const isUser = role === 'user';
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} w-full`;
+
+            const bubble = document.createElement('div');
+            if (isUser) {
+                // 用户气泡：右侧，纯色背景
+                bubble.className = "bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-2.5 max-w-[85%] md:max-w-[75%] shadow-sm text-sm whitespace-pre-wrap leading-relaxed";
+                bubble.innerText = content;
+            } else {
+                // 模型气泡：左侧，配合 Markdown prose 排版样式
+                bubble.className = "prose prose-slate prose-sm max-w-[85%] md:max-w-[75%] bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-sm leading-relaxed text-gray-800";
+                bubble.id = isStreaming ? "streaming-bubble" : "";
+                bubble.innerHTML = marked.parse(content);
             }
 
-            const textOutput = document.getElementById('textOutput');
-            textOutput.classList.remove('hidden');
+            wrapper.appendChild(bubble);
+            container.appendChild(wrapper);
+        }
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let buffer = '';
+        // 4. 对话通信与流式传输
+        async function handleSendMessage() {
+            const input = document.getElementById('promptInput');
+            const prompt = input.value.trim();
+            if (!prompt) return;
 
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
+            const activeChat = conversations.find(c => c.id === activeId);
+            if (!activeChat) return;
 
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); 
+            // 1. 本地保存用户消息
+            activeChat.messages.push({ role: 'user', content: prompt });
+            
+            // 2. 如果是第一条消息，自动更新对话标题
+            if (activeChat.title === '新建对话') {
+                activeChat.title = prompt.length > 15 ? prompt.slice(0, 15) + '...' : prompt;
+            }
 
-                for (const line of lines) {
-                    const cleanedLine = line.trim();
-                    if (!cleanedLine) continue;
-                    if (cleanedLine === 'data: [DONE]') continue;
+            // 清空输入框并更新 UI
+            input.value = '';
+            input.style.height = 'auto';
+            saveAndRefresh();
 
-                    if (cleanedLine.startsWith('data: ')) {
-                        try {
-                            const jsonStr = cleanedLine.slice(6);
-                            const parsed = JSON.parse(jsonStr);
-                            const content = parsed.choices[0]?.delta?.content || '';
-                            if (content) {
-                                textOutput.textContent += content;
-                                const container = document.getElementById('outputContainer');
-                                container.scrollTop = container.scrollHeight;
+            // 禁用按钮防多次触发
+            toggleSendButtonState(true);
+
+            // 3. 构建临时 AI 气泡等待流式传输
+            appendMessageBubble('assistant', '', true);
+            const streamingBubble = document.getElementById('streaming-bubble');
+            scrollToBottom();
+
+            let fullResult = '';
+            try {
+                // 发送完整对话历史
+                const response = await fetch(`${config.baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: config.modelName,
+                        messages: activeChat.messages, // 关键：打包整条历史上下文
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.error?.message || `网络响应异常, 状态码: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        const cleanedLine = line.trim();
+                        if (!cleanedLine) continue;
+                        if (cleanedLine === 'data: [DONE]') continue;
+
+                        if (cleanedLine.startsWith('data: ')) {
+                            try {
+                                const jsonStr = cleanedLine.slice(6);
+                                const parsed = JSON.parse(jsonStr);
+                                const content = parsed.choices[0]?.delta?.content || '';
+                                if (content) {
+                                    fullResult += content;
+                                    // 动态渲染实时 Markdown
+                                    streamingBubble.innerHTML = marked.parse(fullResult);
+                                    scrollToBottom();
+                                }
+                            } catch (e) {
+                                console.warn('JSON片段解析失败', e);
                             }
-                        } catch (err) {
-                            console.warn('解析当前流式分片失败:', cleanedLine, err);
                         }
                     }
                 }
+
+                // 传输结束，将最终助手回复落库
+                activeChat.messages.push({ role: 'assistant', content: fullResult });
+                saveAndRefresh();
+
+            } catch (err) {
+                console.error(err);
+                if (streamingBubble) {
+                    streamingBubble.classList.add('text-red-500');
+                    streamingBubble.innerText = `请求出错: ${err.message}`;
+                }
+            } finally {
+                toggleSendButtonState(false);
             }
         }
 
-        // 2. 普通非流式调用 (作为备用)
-        async function callTextAPINonStream(baseUrl, apiKey, model, prompt) {
-            const fetchUrl = getRequestUrl(baseUrl);
-
-            const response = await fetch(fetchUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: model,
-                    messages: [{ role: 'user', content: prompt }],
-                    stream: false
-                })
-            });
-
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error?.message || `请求失败，目标URL: ${fetchUrl}，状态码: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const content = data.choices[0]?.message?.content || '';
-            
-            const textOutput = document.getElementById('textOutput');
-            textOutput.textContent = content;
-            textOutput.classList.remove('hidden');
+        // 5. 辅助与 UI 控件
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
         }
 
-        // 辅助 UI 控制函数
-        function showLoading(isLoading) {
-            const loading = document.getElementById('loading');
-            const submitBtn = document.getElementById('submitBtn');
-            if (isLoading) {
-                loading.classList.remove('hidden');
-                submitBtn.disabled = true;
-                submitBtn.classList.add('opacity-50');
+        function handleEnterKey(event) {
+            // 支持 Enter 发送，Shift+Enter 换行
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                handleSendMessage();
+            }
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chatMessageArea');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function toggleSendButtonState(disabled) {
+            const btn = document.getElementById('sendBtn');
+            const input = document.getElementById('promptInput');
+            if (disabled) {
+                btn.disabled = true;
+                btn.classList.add('opacity-40');
+                input.disabled = true;
             } else {
-                loading.classList.add('hidden');
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('opacity-50');
+                btn.disabled = false;
+                btn.classList.remove('opacity-40');
+                input.disabled = false;
+                input.focus();
             }
         }
 
-        function resetOutputs() {
-            document.getElementById('placeholderText').classList.add('hidden');
-            const textOutput = document.getElementById('textOutput');
-            textOutput.classList.add('hidden');
-            textOutput.classList.remove('text-red-600');
-            textOutput.textContent = '';
+        // 侧边栏及配置弹窗开关
+        function toggleSidebar(show) {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (show) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
         }
 
-        function showError(message) {
-            const textOutput = document.getElementById('textOutput');
-            textOutput.textContent = `请求出错: ${message}`;
-            textOutput.classList.remove('hidden');
-            textOutput.classList.add('text-red-600');
+        function openSettingsModal() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            config.apiKey = document.getElementById('apiKey').value.trim();
+            config.baseUrl = document.getElementById('baseUrl').value.trim();
+            config.modelName = document.getElementById('modelName').value.trim();
+
+            localStorage.setItem('agnes_config', JSON.stringify(config));
+            document.getElementById('currentModelBadge').innerText = config.modelName;
+            
+            closeSettingsModal();
+            alert('参数已保存在本地！');
         }
     </script>
 </body>
