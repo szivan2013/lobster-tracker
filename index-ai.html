@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agnes AI 2.0 Flash 客户端</title>
-    <!-- 引入 Tailwind CSS 快速构建界面 -->
+    <title>Agnes AI 2.0 客户端</title>
+    <!-- 引入 Tailwind CSS 构建干净的界面 -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
@@ -13,7 +13,7 @@
     <header class="bg-white border-b border-gray-200 py-4 px-6 shadow-sm">
         <div class="max-w-6xl mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold text-gray-900">Agnes AI 2.0 客户端</h1>
-            <span class="text-sm text-gray-500">已优化 Vercel 路由适配</span>
+            <span class="text-sm text-gray-500">直连官方网关版 (已支持流式输出)</span>
         </div>
     </header>
 
@@ -34,9 +34,9 @@
             <!-- Base URL -->
             <div>
                 <label class="block text-sm font-medium text-gray-600 mb-1">API Base URL</label>
-                <input type="text" id="baseUrl" value="https://apihub.agnes-ai.com/v1" placeholder="例如: https://apihub.agnes-ai.com/v1 或 /agnes-api" 
+                <input type="text" id="baseUrl" value="https://apihub.agnes-ai.com/v1" placeholder="例如: https://apihub.agnes-ai.com/v1" 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                <p class="text-xs text-gray-400 mt-1">若直接连接报跨域，请填写：/agnes-api</p>
+                <p class="text-xs text-gray-400 mt-1">已默认设置为官方可用网关</p>
             </div>
 
             <!-- 模型名称 -->
@@ -95,7 +95,7 @@
 
     <!-- 页脚 -->
     <footer class="bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-400">
-        已适配自定义 Vercel 反向代理。
+        已成功适配直接请求安全通道。
     </footer>
 
     <!-- 交互逻辑 JS -->
@@ -132,7 +132,7 @@
             }
         }
 
-        // 辅助函数：纯净地拼接请求 URL，不再强行代理
+        // 辅助函数：格式化请求接口地址
         function getRequestUrl(baseUrl) {
             let url = baseUrl;
             if (url.endsWith('/')) {
