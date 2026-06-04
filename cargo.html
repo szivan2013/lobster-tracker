@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>国际普货物流进度查询系统</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; padding-bottom: env(safe-area-inset-bottom); }
+    .pulse-animation { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(1.15); } }
+    [v-cloak] { display: none; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+  <div id="app" class="flex-1 flex flex-col max-w-md mx-auto w-full bg-white shadow-lg min-h-screen relative" v-cloak>
+    
+    <!-- 顶部导航栏 -->
+    <header class="bg-indigo-600 text-white px-4 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
+      <div class="flex items-center space-x-2">
+        <span class="text-xl">📦</span>
+        <h1 class="font-bold text-base tracking-wider">普货跨境物流查询</h1>
+      </div>
+      <div class="flex items-center space-x-1.5">
+        <span v-if="currentUser" class="text-[10px] bg-indigo-700 px-2 py-1 rounded text-indigo-200">
+          👤 {{ currentUser.username }} ({{ currentUser.role === 'admin' ? '管理员' : '操作员' }})
+        </span>
+        <button @click="toggleRole" class="text-[11px] bg-indigo-700 hover:bg-indigo-800 px-2.5 py-1.5 rounded-lg border border-indigo-500 transition">
+          {{ currentRole === 'customer' ? '工作台' : '退出登录' }}
+        </button>
+      </div>
+    </header>
+
+    <!-- 主体内容区域 -->
+    <main class="flex-1 flex flex-col p-4 overflow-y-auto">
+
+      <!-- 1. 客户：查询页 -->
+      <div v-if="currentView === 'query'" class="flex-1 flex flex-col justify-center py-6">
+        <div class="text-center mb-8">
+          <div class="inline-flex p-4 bg-indigo-50 rounded-full text-indigo-600 mb-3">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-black text-slate-800 tracking-tight">国际普货物流查询</h2>
+          <p class="text-slate-500 text-xs mt-1.5">请输入您的客户账号，查询海/空/陆运在途货运实时状态</p>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">客户账号 / 登记手机号</label>
+            <input 
+              v-model="searchQuery" 
+              type="text" 
+              placeholder="如: CUST-YANG" 
+              class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg font-mono tracking-wider transition"
+              @keyup.enter="handleSearch"
+            />
+          </div>
+          
+          <button 
+            @click="handleSearch" 
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition duration-150 active:scale-[0.98]"
+          >
+            查询物流进度
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. 客户：我的货物列表 -->
+      <div v-if="currentView === 'my-consignments'" class="space-y-4 animate-fade-in">
+        <button @click="goBackToQuery" class="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600">
+          <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          重新输入账号
+        </button>
+        
+        <div>
+          <h3 class="text-xl font-bold text-slate-800">名下在途运单列表</h3>
+          <p class="text-xs text-slate-500 mt-1">查询账号：{{ searchQuery.toUpperCase() }}</p>
+        </div>
+
+        <div class="space-y-3">
+          <div 
+            v-for="sub in customerConsignments" 
+            :key="sub.sub_id"
+            @click="viewDetail(sub)"
+            class="border rounded-xl p-4 cursor-pointer transition flex justify-between items-center bg-white shadow-sm border-slate-100 hover:border-indigo-500"
+          >
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-indigo-50 text-indigo-700">分单: {{ sub.sub_id }}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded border font-semibold" :class="getShippingTypeBadge(sub.master_shipping_type).color">
+                  {{ getShippingTypeBadge(sub.master_shipping_type).name }}
+                </span>
+              </div>
+              <h4 class="font-bold mt-2 text-slate-800 text-sm">
+                📦 {{ sub.product_name }}
+              </h4>
+              <p class="text-[11px] text-slate-400 mt-0.5">主单航次: {{ sub.master_id }}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs font-bold text-slate-700">{{ sub.weight || 0 }} KG | {{ sub.volume || 0 }} CBM</p>
+              <div class="text-[11px] font-bold mt-1 text-indigo-600">
+                {{ sub.current_step === 6 ? '✅ 已安全妥投' : getStepName(sub.current_step) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 客户：运单进度详情页 -->
+      <div v-if="currentView === 'detail' && activeSub" class="space-y-5 animate-fade-in">
+        <button @click="goBackToList" class="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600 transition">
+          <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          返回列表
+        </button>
+
+        <!-- 完结单顶部横幅 -->
+        <div v-if="activeSub.current_step === 6" class="bg-indigo-50 border border-indigo-100 text-indigo-800 p-4 rounded-2xl flex items-center space-x-3 shadow-sm">
+          <span class="text-2xl">🎉</span>
+          <div>
+            <h4 class="font-bold text-sm">该货物已完成妥投签收</h4>
+            <p class="text-[11px] text-indigo-600 mt-0.5">感谢您的信任与合作，期待再次为您服务！</p>
+          </div>
+        </div>
+
+        <!-- 核心运单信息卡片 -->
+        <div class="bg-gradient-to-br from-indigo-600 to-slate-800 rounded-2xl p-5 text-white shadow-lg">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <p class="text-indigo-200 text-[10px] uppercase">Waybill ID</p>
+              <h3 class="text-lg font-mono font-bold tracking-wider">{{ activeSub.sub_id }}</h3>
+              <p class="text-xs text-indigo-200 mt-0.5">客户：{{ activeSub.customer_name }}</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border" :class="getShippingTypeBadge(activeSub.master_shipping_type).color">
+              {{ getShippingTypeBadge(activeSub.master_shipping_type).name }}
+            </span>
+          </div>
+          
+          <div class="grid grid-cols-3 gap-3 pt-4 border-t border-white border-opacity-10 text-center">
+            <div>
+              <p class="text-indigo-200 text-[10px]">货物名称</p>
+              <p class="font-bold text-xs mt-0.5 truncate">{{ activeSub.product_name }}</p>
+            </div>
+            <div>
+              <p class="text-indigo-200 text-[10px]">总重量 / 体积</p>
+              <p class="font-bold text-xs mt-0.5">{{ activeSub.weight }} KG / {{ activeSub.volume }} CBM</p>
+            </div>
+            <div>
+              <p class="text-indigo-200 text-[10px]">货物件数</p>
+              <p class="font-bold text-xs mt-0.5">{{ activeSub.pieces }} 件</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 物流时间轴 -->
+        <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <h4 class="font-bold text-slate-800 mb-6 text-sm flex items-center">
+            <span class="w-1.5 h-4 bg-indigo-600 rounded-full mr-2"></span>
+            实时运输及报关进度
+          </h4>
+
+          <div class="relative pl-6 space-y-8">
+            <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100 z-0"></div>
+            <div class="absolute left-[11px] top-2 w-0.5 bg-indigo-500 transition-all duration-500 z-0" :style="{ height: getTimelineLineHeight() }"></div>
+
+            <div v-for="(step, index) in activeSub.steps" :key="index" class="relative flex items-start space-x-4">
+              <div class="absolute -left-[20px] z-10">
+                <div v-if="index < activeSub.current_step" class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white shadow-sm">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <div v-else-if="index === activeSub.current_step" class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md ring-4 ring-indigo-100 pulse-animation">
+                  <div class="w-2.5 h-2.5 bg-white rounded-full"></div>
+                </div>
+                <div v-else class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-400">
+                  <span class="text-[10px] font-bold">{{ index + 1 }}</span>
+                </div>
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-center mb-1">
+                  <h5 class="font-bold text-xs" :class="index <= activeSub.current_step ? 'text-slate-800' : 'text-slate-400'">{{ step.name }}</h5>
+                  <span v-if="step.time" class="text-[10px] text-slate-400 font-mono">{{ step.time }}</span>
+                </div>
+                
+                <p class="text-xs font-semibold text-indigo-700 bg-indigo-50/50 p-2 rounded-lg border border-dashed border-indigo-100 mb-1.5" v-if="step.desc && index <= activeSub.current_step">
+                  📢 现场追踪：{{ step.desc }}
+                </p>
+                <p class="text-xs" :class="index <= activeSub.current_step ? 'text-slate-500' : 'text-slate-300'">{{ getStepDescription(index) }}</p>
+
+                <!-- 照片缩略图 -->
+                <div v-if="step.photo && index <= activeSub.current_step" class="mt-2.5">
+                  <div class="inline-block relative rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shadow-sm cursor-pointer" @click="zoomImage(step.photo)">
+                    <img :src="step.photo" alt="现场照片" class="h-20 w-36 object-cover hover:opacity-90 transition">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 后台工作台 -->
+      <div v-if="currentView === 'admin'" class="space-y-4 animate-fade-in">
+        
+        <!-- 角色菜单切换 (管理员可见) -->
+        <div v-if="currentUser && currentUser.role === 'admin'" class="flex border-b text-sm font-semibold mb-2">
+          <button @click="adminActiveTab = 'waybills'" class="flex-1 py-2 text-center" :class="adminActiveTab === 'waybills' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'">
+            运单管理
+          </button>
+          <button @click="adminActiveTab = 'operators'" class="flex-1 py-2 text-center" :class="adminActiveTab === 'operators' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'">
+            账户管理 (仅限管理员)
+          </button>
+        </div>
+
+        <!-- 标签页 A：运单管理 -->
+        <div v-if="adminActiveTab === 'waybills'" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <div>
+              <h2 class="text-sm font-bold text-slate-800">主批次船次/车次管理</h2>
+              <p class="text-[10px] text-slate-400">新建合并批次，并可添加客户拼箱货品</p>
+            </div>
+            <button @click="showAddMasterModal = true" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+              + 新建主运单
+            </button>
+          </div>
+
+          <!-- 主运单批次卡片 -->
+          <div class="space-y-4">
+            <div v-for="master in masterWaybills" :key="master.id" class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <div class="flex items-center space-x-1.5">
+                    <span class="text-xs font-mono font-bold text-slate-700">主单号: {{ master.id }}</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded font-semibold" :class="getShippingTypeBadge(master.shipping_type).color">
+                      {{ getShippingTypeBadge(master.shipping_type).name }}
+                    </span>
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1">创建时间: {{ master.created_at ? formatLocalTime(master.created_at) : '未知' }}</p>
+                </div>
+                <button @click="deleteMaster(master.id)" class="text-rose-500 text-xs hover:underline">删除主单 🗑</button>
+              </div>
+
+              <!-- 子货单列表 -->
+              <div class="mt-3 pt-3 border-t border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-xs font-bold text-slate-500">已绑定的客户货物单：</span>
+                  <button @click="addSubToMaster(master.id)" class="text-[10px] text-indigo-600 hover:underline font-bold">+ 关联客户</button>
+                </div>
+
+                <div class="space-y-2">
+                  <div v-for="sub in getSubsForMaster(master.id)" :key="sub.sub_id" class="bg-slate-50 p-2.5 rounded-lg text-xs flex justify-between items-center">
+                    <div>
+                      <div class="font-mono font-bold text-slate-800 flex items-center space-x-1">
+                        <span>{{ sub.sub_id }}</span>
+                        <span class="text-[9px] bg-slate-200 text-slate-500 px-1 rounded">{{ sub.customer_account }}</span>
+                      </div>
+                      <div class="text-slate-500 mt-0.5 text-[11px]">{{ sub.customer_name }} - {{ sub.product_name }}</div>
+                      <span class="text-[10px] text-indigo-600 font-bold mt-1 inline-block">
+                        当前节点: {{ getStepName(sub.current_step) }}
+                      </span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                      <div class="text-right mr-1.5">
+                        <p class="font-bold text-slate-700 text-[11px]">{{ sub.weight }} KG</p>
+                        <p class="text-[10px] text-slate-400">{{ sub.volume }} CBM / {{ sub.pieces }}件</p>
+                      </div>
+                      <button @click="editSubProgress(sub)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] px-2 py-1 rounded transition">
+                        更新进度
+                      </button>
+                      <button @click="openEditSubModal(sub)" class="text-blue-600 p-1 bg-white border rounded shadow-xs text-[10px]">
+                        ✏️
+                      </button>
+                    </div>
+                  </div>
+                  <div v-if="getSubsForMaster(master.id).length === 0" class="text-center py-4 text-slate-400 text-xs">
+                    该批次暂无关联货物。
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 标签页 B：操作员管理 -->
+        <div v-if="adminActiveTab === 'operators' && currentUser && currentUser.role === 'admin'" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <div>
+              <h2 class="text-sm font-bold text-slate-800">操作员账户列表</h2>
+              <p class="text-[10px] text-slate-400">添加并分配普通操作员权限</p>
+            </div>
+            <button @click="showAddOperatorModal = true" class="bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-lg transition">
+              + 添加操作员
+            </button>
+          </div>
+
+          <div class="bg-white border rounded-xl overflow-hidden shadow-sm">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100 text-slate-500 font-bold border-b">
+                <tr>
+                  <th class="p-3">账号</th>
+                  <th class="p-3">密码</th>
+                  <th class="p-3">角色</th>
+                  <th class="p-3 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="op in operators" :key="op.username" class="border-b last:border-b-0 hover:bg-slate-50">
+                  <td class="p-3 font-mono">{{ op.username }}</td>
+                  <td class="p-3 font-mono text-slate-400">{{ op.password }}</td>
+                  <td class="p-3">
+                    <span class="px-1.5 py-0.5 rounded text-[10px]" :class="op.role === 'admin' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'">
+                      {{ op.role === 'admin' ? '系统管理员' : '普通操作员' }}
+                    </span>
+                  </td>
+                  <td class="p-3 text-right">
+                    <button v-if="op.username !== 'admin'" @click="deleteOperator(op.username)" class="text-rose-600 hover:underline">删除</button>
+                    <span v-else class="text-slate-300">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- 模态框 1：添加主运单 -->
+    <div v-if="showAddMasterModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
+        <h3 class="font-bold text-base text-slate-800 border-b pb-2">新建主单批次</h3>
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">选择货运线路模式</label>
+            <select v-model="newMasterData.shipping_type" class="w-full p-2.5 rounded border bg-white focus:ring-2 focus:ring-indigo-500">
+              <option value="sea">🚢 国际海运拼箱 (SEA)</option>
+              <option value="air">✈️ 国际航空物流 (AIR)</option>
+              <option value="land">🚚 跨境陆路运输 (LAND)</option>
+            </select>
+          </div>
+          <p class="text-[10px] text-slate-400">系统将根据所选线路和当前日期，自动生成唯一的主单航次编号。</p>
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button @click="showAddMasterModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 text-xs">取消</button>
+          <button @click="saveNewMaster" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">生成主单</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模态框 2：关联新客户拼箱货物 -->
+    <div v-if="showAddSubModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
+        <h3 class="font-bold text-base text-slate-800 border-b pb-2">关联客户货物到主单</h3>
+        <div class="space-y-3 text-xs">
+          <input type="text" v-model="newSubData.customer_account" placeholder="客户查询账号 (如: CUST-YANG)" class="w-full p-2.5 rounded border">
+          <input type="text" v-model="newSubData.customer_name" placeholder="客户简称 / 抬头 (如: 顺风行贸易)" class="w-full p-2.5 rounded border">
+          <input type="text" v-model="newSubData.product_name" placeholder="货物描述 (如: 五金配件与防尘网)" class="w-full p-2.5 rounded border">
+          <div class="grid grid-cols-3 gap-2">
+            <input type="number" v-model="newSubData.weight" placeholder="重量(KG)" class="p-2.5 rounded border">
+            <input type="number" v-model="newSubData.volume" placeholder="体积(CBM)" class="p-2.5 rounded border">
+            <input type="number" v-model="newSubData.pieces" placeholder="件数" class="p-2.5 rounded border">
+          </div>
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button @click="showAddSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 text-xs">取消</button>
+          <button @click="saveNewSub" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">保存关联</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模态框 3：更新单分箱物流进度 -->
+    <div v-if="showEditModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-4">
+      <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+          <div>
+            <h3 class="font-bold text-sm text-slate-800">更新运单物流节点</h3>
+            <p class="text-[10px] text-slate-400" v-if="editingSubProgress">
+              运单: {{ editingSubProgress.sub_id }}
+            </p>
+          </div>
+          <button @click="showEditModal = false" class="text-slate-400">✕</button>
+        </div>
+
+        <div v-if="editingSubProgress" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">选择当前最新运输节点</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button 
+                v-for="(stepName, idx) in stepNames" :key="idx" @click="setEditingStep(idx)" type="button"
+                class="p-2.5 rounded-lg border text-left text-xs font-semibold flex items-center justify-between transition"
+                :class="editingSubProgress.current_step === idx ? 'border-indigo-500 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-200' : 'border-slate-200 bg-white text-slate-600'"
+              >
+                <span>{{ idx + 1 }}. {{ stepName }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 手动文字备注 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1.5">追踪实况文字描述（客户同步看见，选填）</label>
+            <textarea 
+              v-model="editingSubProgress.steps[editingSubProgress.current_step].desc" 
+              placeholder="例如：集装箱已送达港口，海关系统已放行，正在安排装船..."
+              class="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 min-h-[70px] font-sans"
+            ></textarea>
+          </div>
+
+          <!-- 拍照上传 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-2">现场拍照（调用手机摄像头或上传照片）</label>
+            <div class="flex items-center space-x-3">
+              <label class="cursor-pointer bg-slate-100 border-2 border-dashed rounded-xl w-24 h-24 flex flex-col justify-center items-center text-slate-500 relative overflow-hidden">
+                <input type="file" accept="image/*" capture="environment" @change="onPhotoSelected" class="hidden">
+                <span v-if="!tempFile" class="text-[10px]">点击拍摄</span>
+                <span v-else class="text-[10px] text-indigo-600">已选取照片</span>
+              </label>
+              <span v-if="uploading" class="text-xs text-amber-500">照片上传中...</span>
+            </div>
+          </div>
+
+          <button @click="saveSubProgressStatus" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-md">
+            同步更新进度
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模态框 4：修改拼箱子单信息 -->
+    <div v-if="showEditSubModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
+        <h3 class="font-bold text-base text-slate-800 border-b pb-2">修改货物详情数据</h3>
+        <div class="space-y-3 text-xs" v-if="editingSubData">
+          <div>
+            <label class="block text-slate-400 mb-1">分单号（只读）</label>
+            <input type="text" v-model="editingSubData.sub_id" disabled class="w-full p-2.5 rounded border bg-slate-50 text-slate-400 font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">客户查询账号</label>
+            <input type="text" v-model="editingSubData.customer_account" class="w-full p-2.5 rounded border">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">客户简称</label>
+            <input type="text" v-model="editingSubData.customer_name" class="w-full p-2.5 rounded border">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">货物描述</label>
+            <input type="text" v-model="editingSubData.product_name" class="w-full p-2.5 rounded border">
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1">重量(KG)</label>
+              <input type="number" v-model="editingSubData.weight" class="w-full p-2 rounded border">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">体积(CBM)</label>
+              <input type="number" v-model="editingSubData.volume" class="w-full p-2 rounded border">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">件数</label>
+              <input type="number" v-model="editingSubData.pieces" class="w-full p-2 rounded border">
+            </div>
+          </div>
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button @click="showEditSubModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 text-xs">取消</button>
+          <button @click="saveEditedSub" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">保存修改</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模态框 5：添加新操作员账号 -->
+    <div v-if="showAddOperatorModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-2xl">
+        <h3 class="font-bold text-base text-slate-800 border-b pb-2">添加操作员账号</h3>
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">用户名（英文或数字）</label>
+            <input type="text" v-model="newOperatorData.username" placeholder="如: op_alex" class="w-full p-2.5 rounded border">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">密码</label>
+            <input type="text" v-model="newOperatorData.password" placeholder="请输入密码" class="w-full p-2.5 rounded border">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">角色权限</label>
+            <select v-model="newOperatorData.role" class="w-full p-2.5 rounded border bg-white">
+              <option value="operator">普通操作员</option>
+              <option value="admin">系统管理员 (Admin)</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button @click="showAddOperatorModal = false" class="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 text-xs">取消</button>
+          <button @click="saveNewOperator" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">创建账号</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模态框 6：后台登录 -->
+    <div v-if="showLoginModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-xl">
+        <h3 class="font-bold text-base text-slate-800 border-b pb-2 flex items-center">
+          <span class="mr-2">🔑</span> 工作台登录校验
+        </h3>
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block text-slate-500 mb-1">账号/用户名</label>
+            <input 
+              type="text" 
+              v-model="loginForm.username" 
+              placeholder="请输入管理员或操作员账号" 
+              class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+              @keyup.enter="submitLogin"
+            >
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">登录密码</label>
+            <input 
+              type="password" 
+              v-model="loginForm.password" 
+              placeholder="请输入对应密码" 
+              class="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+              @keyup.enter="submitLogin"
+            >
+          </div>
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button @click="showLoginModal = false" class="flex-1 py-2.5 bg-slate-100 rounded-lg text-slate-600 text-xs">
+            取消
+          </button>
+          <button @click="submitLogin" class="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition">
+            验证并进入
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. 大图预览 -->
+    <div v-if="zoomedPhoto" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" @click="zoomedPhoto = null">
+      <img :src="zoomedPhoto" class="max-w-full max-h-[85vh] rounded-lg object-contain">
+    </div>
+
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted } = Vue;
+
+    // ==================== 🛠 仔细填入您的 SUPABASE 凭证 ====================
+    // 这里的值与您小龙虾清关程序中使用的完全一样，直接复制粘贴即可
+    const SUPABASE_URL = 'https://gowbjykkfsqsybddvbyu.supabase.co'; 
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdvd2JqeWtrZnNxc3liZGR2Ynl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODQ1NDQsImV4cCI6MjA5NTk2MDU0NH0.VcsrlWfKUPG2eCbKle0ckL68xw4EgiIImj-JW6CE6Kc'; 
+    // ===================================================================
+
+    let supabaseClient = null;
+    const isConfigured = SUPABASE_URL && !SUPABASE_URL.includes('请在这里') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('请在这里');
+
+    if (isConfigured) {
+      try {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      } catch (e) {
+        console.error('Supabase 初始化错误:', e);
+      }
+    } else {
+      console.warn('⚠️ 未检测到有效 Supabase 配置，当前运行在 Mock 演示模式。');
+    }
+
+    const getLocalTime = (dateInput) => {
+      const date = dateInput ? new Date(dateInput) : new Date();
+      if (isNaN(date.getTime())) return '';
+      const pad = (n) => String(n).padStart(2, '0');
+      const year = date.getFullYear();
+      const month = pad(date.getMonth() + 1);
+      const day = pad(date.getDate());
+      const hours = pad(date.getHours());
+      const minutes = pad(date.getMinutes());
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    };
+
+    const getLocalIDDate = () => {
+      const date = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const yy = String(date.getFullYear()).substring(2);
+      const mm = pad(date.getMonth() + 1);
+      const dd = pad(date.getDate());
+      return `${yy}${mm}${dd}`;
+    };
+
+    createApp({
+      setup() {
+        const currentRole = ref('customer');
+        const currentView = ref('query');
+        const adminActiveTab = ref('waybills');
+        const searchQuery = ref('');
+        const activeSub = ref(null);
+        const activeMaster = ref(null);
+        const zoomedPhoto = ref(null);
+        
+        const showEditModal = ref(false);
+        const editingSubProgress = ref(null);
+        const tempFile = ref(null);
+        const uploading = ref(false);
+
+        const showAddMasterModal = ref(false);
+        const newMasterData = ref({ shipping_type: 'sea' });
+
+        const showAddSubModal = ref(false);
+        const newSubData = ref({ masterId: '', customer_account: '', customer_name: '', product_name: '', weight: '', volume: '', pieces: '' });
+
+        const showEditSubModal = ref(false);
+        const editingSubData = ref(null);
+
+        const showAddOperatorModal = ref(false);
+        const newOperatorData = ref({ username: '', password: '', role: 'operator' });
+
+        const showLoginModal = ref(false);
+        const currentUser = ref(null);
+        const loginForm = ref({ username: '', password: '' });
+
+        const stepNames = ['仓库收货', '配载装箱', '出口报关', '跨境运输', '进口清关', '分拨派送', '收货签收'];
+        const masterWaybills = ref([]);
+        const subWaybills = ref([]);
+        const customerConsignments = ref([]);
+        const operators = ref([]);
+
+        const loadDataFromSupabase = async () => {
+          if (!supabaseClient) {
+            masterWaybills.value = [
+              { id: 'KH260601', shipping_type: 'sea', created_at: '2026-06-01T08:30:00Z' }
+            ];
+            subWaybills.value = [
+              {
+                sub_id: 'SUB-26060101',
+                master_id: 'KH260601',
+                customer_account: 'CUST-YANG',
+                customer_name: '正泰商贸',
+                product_name: '高档不锈钢厨具与货架',
+                weight: '120.5',
+                volume: '2.4',
+                pieces: 15,
+                current_step: 3,
+                master_shipping_type: 'sea',
+                steps: stepNames.map((name, i) => ({
+                  name,
+                  time: i <= 3 ? '2026-06-01 14:20' : '',
+                  photo: i === 1 ? 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&q=80' : '',
+                  desc: i === 3 ? '已安排装箱并驶离出发口岸海域' : ''
+                }))
+              }
+            ];
+            operators.value = [
+              { username: 'admin', password: 'admin123456', role: 'admin' },
+              { username: 'op_alex', password: 'op123', role: 'operator' }
+            ];
+            return;
+          }
+          
+          try {
+            const { data: masters } = await supabaseClient.from('cargo_master_waybills').select('*').order('created_at', { ascending: false });
+            if (masters) masterWaybills.value = masters;
+
+            const { data: subs } = await supabaseClient.from('cargo_sub_waybills').select('*');
+            if (subs) {
+              subs.forEach(sub => {
+                const master = masterWaybills.value.find(m => m.id === sub.master_id);
+                sub.master_shipping_type = master ? master.shipping_type : 'sea';
+                
+                if (!sub.steps || sub.steps.length === 0) {
+                  sub.current_step = 0;
+                  sub.steps = stepNames.map((name, i) => ({
+                    name,
+                    time: i === 0 ? getLocalTime() : '',
+                    photo: '',
+                    desc: ''
+                  }));
+                } else {
+                  while (sub.steps.length < stepNames.length) {
+                    const currentLen = sub.steps.length;
+                    sub.steps.push({
+                      name: stepNames[currentLen],
+                      time: '',
+                      photo: '',
+                      desc: ''
+                    });
+                  }
+                }
+              });
+              subWaybills.value = subs;
+            }
+          } catch (e) {
+            console.error('云数据库读取失败:', e);
+          }
+        };
+
+        const loadOperators = async () => {
+          if (!supabaseClient || currentUser.value?.role !== 'admin') return;
+          const { data } = await supabaseClient.from('cargo_operators').select('*');
+          if (data) operators.value = data;
+        };
+
+        const getStepDescription = (index) => {
+          const desc = [
+            '物流中心已核对货品明细并完成签收入库称重。',
+            '集货仓已完成货品合理配载并安排密封集装箱装载。',
+            '海关单据及发票等已向始发口岸申报海关。',
+            '运输工具顺利出发，跨境航行运输中。',
+            '货物抵达进口口岸，绿色通道极速清关，完成报税申报。',
+            '海关完成放行，货物已转运至我司网点开展二级拆箱与终端配送。',
+            '目的港客户已顺利收到全部货物并现场签收。'
+          ];
+          return desc[index];
+        };
+
+        const getStepName = (index) => stepNames[index];
+        const getMasterWaybill = (masterId) => masterWaybills.value.find(m => m.id === masterId) || null;
+        const getSubsForMaster = (masterId) => subWaybills.value.filter(s => s.master_id === masterId);
+
+        const getShippingTypeBadge = (type) => {
+          const types = {
+            sea: { name: '海运 🚢', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+            air: { name: '空运 ✈️', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+            land: { name: '陆运 🚚', color: 'bg-amber-50 text-amber-700 border-amber-200' }
+          };
+          return types[type] || { name: '未知 📦', color: 'bg-slate-50 text-slate-700 border-slate-200' };
+        };
+
+        const toggleRole = () => {
+          if (currentRole.value === 'customer') {
+            loginForm.value.username = '';
+            loginForm.value.password = '';
+            showLoginModal.value = true;
+          } else {
+            currentRole.value = 'customer';
+            currentView.value = 'query';
+            currentUser.value = null;
+            activeSub.value = null;
+            activeMaster.value = null;
+          }
+        };
+
+        const submitLogin = async () => {
+          const user = loginForm.value.username.trim();
+          const pass = loginForm.value.password;
+          
+          if (!supabaseClient) {
+            const found = operators.value.find(o => o.username === user && o.password === pass);
+            if (found) {
+              currentUser.value = found;
+              currentRole.value = 'admin';
+              currentView.value = 'admin';
+              showLoginModal.value = false;
+            } else {
+              alert('用户名密码错误，测试账号密码：admin / admin123456');
+            }
+            return;
+          }
+
+          const { data, error } = await supabaseClient
+            .from('cargo_operators')
+            .select('*')
+            .eq('username', user)
+            .eq('password', pass)
+            .single();
+
+          if (error || !data) {
+            alert('用户名或密码错误，请确认输入！');
+          } else {
+            currentUser.value = data;
+            currentRole.value = 'admin';
+            currentView.value = 'admin';
+            showLoginModal.value = false;
+            loadOperators();
+          }
+        };
+
+        const handleSearch = async () => {
+          const cleaned = searchQuery.value.trim().toUpperCase();
+          if (!cleaned) return alert('请输入客户账号');
+
+          let matched = [];
+          if (!supabaseClient) {
+            matched = subWaybills.value.filter(sub => sub.customer_account.toUpperCase() === cleaned);
+          } else {
+            const { data, error } = await supabaseClient
+              .from('cargo_sub_waybills')
+              .select('*')
+              .eq('customer_account', cleaned);
+            if (error) {
+              return alert('查询失败: ' + error.message);
+            }
+            matched = data || [];
+          }
+
+          if (matched.length === 0) {
+            return alert('未查询到相关货品，测试输入：CUST-YANG');
+          }
+
+          matched.forEach(sub => {
+            const m = getMasterWaybill(sub.master_id);
+            sub.master_shipping_type = m ? m.shipping_type : 'sea';
+          });
+
+          matched.sort((a, b) => {
+            const aCompleted = a.current_step === 6;
+            const bCompleted = b.current_step === 6;
+            if (aCompleted !== bCompleted) {
+              return aCompleted ? 1 : -1;
+            }
+            return b.sub_id.localeCompare(a.sub_id);
+          });
+
+          customerConsignments.value = matched;
+          if (matched.length === 1) {
+            viewDetail(matched[0]);
+          } else {
+            currentView.value = 'my-consignments';
+          }
+        };
+
+        const viewDetail = (sub) => {
+          activeSub.value = sub;
+          activeMaster.value = getMasterWaybill(sub.master_id);
+          currentView.value = 'detail';
+        };
+
+        const goBackToQuery = () => currentView.value = 'query';
+        const goBackToList = () => customerConsignments.value.length > 1 ? currentView.value = 'my-consignments' : currentView.value = 'query';
+        const getTimelineLineHeight = () => activeSub.value ? `${(activeSub.value.current_step / 6) * 100}%` : '0%';
+        const zoomImage = (url) => zoomedPhoto.value = url;
+
+        const editSubProgress = (sub) => {
+          const clonedSub = JSON.parse(JSON.stringify(sub));
+          while (clonedSub.steps.length < stepNames.length) {
+            const currentLen = clonedSub.steps.length;
+            clonedSub.steps.push({
+              name: stepNames[currentLen],
+              time: '',
+              photo: '',
+              desc: ''
+            });
+          }
+          editingSubProgress.value = clonedSub;
+          tempFile.value = null;
+          showEditModal.value = true;
+        };
+
+        const setEditingStep = (idx) => {
+          editingSubProgress.value.current_step = idx;
+        };
+
+        const onPhotoSelected = (e) => {
+          const file = e.target.files[0];
+          if (file) tempFile.value = file;
+        };
+
+        const saveSubProgressStatus = async () => {
+          const target = subWaybills.value.find(s => s.sub_id === editingSubProgress.value.sub_id);
+          if (!target) return;
+
+          uploading.value = true;
+          let photoUrl = target.steps[editingSubProgress.value.current_step]?.photo || '';
+
+          if (tempFile.value && supabaseClient) {
+            const fileExt = tempFile.value.name.split('.').pop();
+            const fileName = editingSubProgress.value.sub_id + '_step' + editingSubProgress.value.current_step + '_' + Date.now() + '.' + fileExt;
+            
+            const { error } = await supabaseClient.storage
+              .from('cargo-photos')
+              .upload(fileName, tempFile.value);
+
+            if (error) {
+              alert('照片上传失败: ' + error.message);
+              uploading.value = false;
+              return;
+            }
+
+            const { data: publicUrlData } = supabaseClient.storage
+              .from('cargo-photos')
+              .getPublicUrl(fileName);
+            
+            photoUrl = publicUrlData.publicUrl;
+          }
+
+          const nowStr = getLocalTime();
+          for (let i = 0; i <= editingSubProgress.value.current_step; i++) {
+            if (!editingSubProgress.value.steps[i].time) {
+              editingSubProgress.value.steps[i].time = nowStr;
+            }
+          }
+
+          editingSubProgress.value.steps[editingSubProgress.value.current_step].photo = photoUrl;
+
+          if (!supabaseClient) {
+            target.current_step = editingSubProgress.value.current_step;
+            target.steps = editingSubProgress.value.steps;
+            showEditModal.value = false;
+            uploading.value = false;
+            alert('Mock更新成功！');
+            return;
+          }
+
+          const { error: dbError } = await supabaseClient
+            .from('cargo_sub_waybills')
+            .update({
+              current_step: editingSubProgress.value.current_step,
+              steps: editingSubProgress.value.steps
+            })
+            .eq('sub_id', editingSubProgress.value.sub_id);
+
+          uploading.value = false;
+          if (dbError) {
+            alert('保存数据失败: ' + dbError.message);
+          } else {
+            alert('进度更新并同步成功！');
+            showEditModal.value = false;
+            loadDataFromSupabase();
+          }
+        };
+
+        const deleteMaster = async (masterId) => {
+          if (!confirm('💥 警告：确定要删除该主运单批次吗？\n删除后该线路包含的所有拼箱子运单将全部同步清空。')) return;
+
+          if (!supabaseClient) {
+            masterWaybills.value = masterWaybills.value.filter(m => m.id !== masterId);
+            subWaybills.value = subWaybills.value.filter(s => s.master_id !== masterId);
+            return alert('本地Mock已清空该项。');
+          }
+
+          const { error } = await supabaseClient.from('cargo_master_waybills').delete().eq('id', masterId);
+          if (error) {
+            alert('删除主单失败: ' + error.message);
+          } else {
+            loadDataFromSupabase();
+          }
+        };
+
+        const saveNewMaster = async () => {
+          const typeMap = { sea: 'SEA', air: 'AIR', land: 'LND' };
+          const prefix = typeMap[newMasterData.value.shipping_type] || 'CAR';
+          const newId = prefix + getLocalIDDate() + Math.floor(Math.random()*100).toString().padStart(2, '0');
+          
+          const newMaster = {
+            id: newId,
+            shipping_type: newMasterData.value.shipping_type,
+            created_at: new Date().toISOString()
+          };
+
+          if (!supabaseClient) {
+            masterWaybills.value.unshift(newMaster);
+            showAddMasterModal.value = false;
+            alert('Mock新建临时主运单成功');
+            return;
+          }
+
+          const { error } = await supabaseClient.from('cargo_master_waybills').insert([newMaster]);
+          if (error) {
+            alert('创建失败: ' + error.message);
+          } else {
+            showAddMasterModal.value = false;
+            loadDataFromSupabase();
+          }
+        };
+
+        const addSubToMaster = (masterId) => {
+          newSubData.value = {
+            masterId: masterId,
+            customer_account: '',
+            customer_name: '',
+            product_name: '进口生活普货',
+            weight: '',
+            volume: '',
+            pieces: ''
+          };
+          showAddSubModal.value = true;
+        };
+
+        const saveNewSub = async () => {
+          const d = newSubData.value;
+          if (!d.customer_account || !d.customer_name) {
+            return alert('请填写客户名称及查询账号');
+          }
+
+          const newSubId = 'SUB-' + getLocalIDDate() + Math.floor(Math.random()*100).toString().padStart(2, '0');
+          const newSub = {
+            sub_id: newSubId,
+            master_id: d.masterId,
+            customer_account: d.customer_account.trim().toUpperCase(),
+            customer_name: d.customer_name,
+            product_name: d.product_name,
+            weight: parseFloat(d.weight) || 0,
+            volume: parseFloat(d.volume) || 0,
+            pieces: parseInt(d.pieces) || 1,
+            current_step: 0,
+            steps: stepNames.map((name, i) => ({
+              name,
+              time: i === 0 ? getLocalTime() : '',
+              photo: '',
+              desc: ''
+            }))
+          };
+
+          if (!supabaseClient) {
+            const master = getMasterWaybill(d.masterId);
+            newSub.master_shipping_type = master ? master.shipping_type : 'sea';
+            subWaybills.value.push(newSub);
+            showAddSubModal.value = false;
+            return;
+          }
+
+          const { error } = await supabaseClient.from('cargo_sub_waybills').insert([newSub]);
+          if (error) {
+            alert('绑定关联失败: ' + error.message);
+          } else {
+            showAddSubModal.value = false;
+            loadDataFromSupabase();
+          }
+        };
+
+        const openEditSubModal = (sub) => {
+          editingSubData.value = JSON.parse(JSON.stringify(sub));
+          showEditSubModal.value = true;
+        };
+
+        const saveEditedSub = async () => {
+          const d = editingSubData.value;
+          if (!d.customer_account || !d.customer_name) {
+            return alert('请完整填写关键信息');
+          }
+
+          if (!supabaseClient) {
+            const index = subWaybills.value.findIndex(s => s.sub_id === d.sub_id);
+            if (index !== -1) {
+              subWaybills.value[index] = d;
+            }
+            showEditSubModal.value = false;
+            return;
+          }
+
+          const { error } = await supabaseClient
+            .from('cargo_sub_waybills')
+            .update({
+              customer_account: d.customer_account.trim().toUpperCase(),
+              customer_name: d.customer_name,
+              product_name: d.product_name,
+              weight: parseFloat(d.weight) || 0,
+              volume: parseFloat(d.volume) || 0,
+              pieces: parseInt(d.pieces) || 1
+            })
+            .eq('sub_id', d.sub_id);
+
+          if (error) {
+            alert('保存修改失败: ' + error.message);
+          } else {
+            showEditSubModal.value = false;
+            loadDataFromSupabase();
+          }
+        };
+
+        const saveNewOperator = async () => {
+          const op = newOperatorData.value;
+          if (!op.username || !op.password) {
+            return alert('用户名和密码均不可为空');
+          }
+          const opPayload = {
+            username: op.username.trim(),
+            password: op.password.trim(),
+            role: op.role
+          };
+
+          if (!supabaseClient) {
+            operators.value.push(opPayload);
+            showAddOperatorModal.value = false;
+            alert('Mock添加账号成功');
+            return;
+          }
+
+          const { error } = await supabaseClient.from('cargo_operators').insert([opPayload]);
+          if (error) {
+            alert('新增操作员失败: ' + error.message);
+          } else {
+            showAddOperatorModal.value = false;
+            loadOperators();
+          }
+        };
+
+        const deleteOperator = async (username) => {
+          if (username === 'admin') return alert('不可删除系统管理员账户');
+          if (!confirm(`确定要彻底删除操作员 ${username} 吗？`)) return;
+
+          if (!supabaseClient) {
+            operators.value = operators.value.filter(o => o.username !== username);
+            return;
+          }
+
+          const { error } = await supabaseClient.from('cargo_operators').delete().eq('username', username);
+          if (error) {
+            alert('账户删除失败: ' + error.message);
+          } else {
+            loadOperators();
+          }
+        };
+
+        onMounted(() => {
+          loadDataFromSupabase();
+        });
+
+        return {
+          currentRole, currentView, adminActiveTab, searchQuery, activeSub, activeMaster, zoomedPhoto,
+          masterWaybills, subWaybills, customerConsignments, showEditModal, editingSubProgress,
+          tempFile, uploading, showAddMasterModal, newMasterData, showAddSubModal, newSubData, stepNames,
+          showLoginModal, currentUser, loginForm, submitLogin, editSubProgress, saveSubProgressStatus,
+          showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster,
+          showAddOperatorModal, newOperatorData, operators, saveNewOperator, deleteOperator,
+          getStepDescription, getStepName, getMasterWaybill, getSubsForMaster, getShippingTypeBadge,
+          toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
+          getTimelineLineHeight, zoomImage, setEditingStep,
+          onPhotoSelected, addSubToMaster, saveNewSub, saveNewMaster,
+          formatLocalTime: getLocalTime
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
