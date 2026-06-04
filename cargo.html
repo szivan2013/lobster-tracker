@@ -1,3 +1,4 @@
+<!-- START OF FILE cargo.html -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -107,7 +108,7 @@
             <div class="text-right">
               <p class="text-xs font-bold text-slate-700">{{ sub.weight || 0 }} KG | {{ sub.volume || 0 }} CBM</p>
               <div class="text-[11px] font-bold mt-1 text-indigo-600">
-                {{ sub.current_step === 6 ? '✅ 已安全妥投' : getStepName(sub.current_step) }}
+                {{ sub.current_step === 6 ? '✅ 已安全妥投' : sub.steps[sub.current_step]?.name }}
               </div>
             </div>
           </div>
@@ -192,7 +193,9 @@
                 <p class="text-xs font-semibold text-indigo-700 bg-indigo-50/50 p-2 rounded-lg border border-dashed border-indigo-100 mb-1.5" v-if="step.desc && index <= activeSub.current_step">
                   📢 现场追踪：{{ step.desc }}
                 </p>
-                <p class="text-xs" :class="index <= activeSub.current_step ? 'text-slate-500' : 'text-slate-300'">{{ getStepDescription(index) }}</p>
+                <p class="text-xs" :class="index <= activeSub.current_step ? 'text-slate-500' : 'text-slate-300'">
+                  {{ getStepDescription(index, activeSub.master_shipping_type) }}
+                </p>
 
                 <!-- 照片缩略图 -->
                 <div v-if="step.photo && index <= activeSub.current_step" class="mt-2.5">
@@ -263,7 +266,7 @@
                       </div>
                       <div class="text-slate-500 mt-0.5 text-[11px]">{{ sub.customer_name }} - {{ sub.product_name }}</div>
                       <span class="text-[10px] text-indigo-600 font-bold mt-1 inline-block">
-                        当前节点: {{ getStepName(sub.current_step) }}
+                        当前节点: {{ sub.steps[sub.current_step]?.name }}
                       </span>
                     </div>
                     <div class="flex items-center space-x-1">
@@ -394,7 +397,7 @@
             <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">选择当前最新运输节点</label>
             <div class="grid grid-cols-2 gap-2">
               <button 
-                v-for="(stepName, idx) in stepNames" :key="idx" @click="setEditingStep(idx)" type="button"
+                v-for="(stepName, idx) in getStepNamesForSub(editingSubProgress)" :key="idx" @click="setEditingStep(idx)" type="button"
                 class="p-2.5 rounded-lg border text-left text-xs font-semibold flex items-center justify-between transition"
                 :class="editingSubProgress.current_step === idx ? 'border-indigo-500 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-200' : 'border-slate-200 bg-white text-slate-600'"
               >
@@ -554,7 +557,6 @@
     const { createApp, ref, onMounted } = Vue;
 
     // ==================== 🛠 仔细填入您的 SUPABASE 凭证 ====================
-    // 这里的值与您小龙虾清关程序中使用的完全一样，直接复制粘贴即可
     const SUPABASE_URL = 'https://gowbjykkfsqsybddvbyu.supabase.co'; 
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdvd2JqeWtrZnNxc3liZGR2Ynl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODQ1NDQsImV4cCI6MjA5NTk2MDU0NH0.VcsrlWfKUPG2eCbKle0ckL68xw4EgiIImj-JW6CE6Kc'; 
     // ===================================================================
@@ -593,6 +595,46 @@
       return `${yy}${mm}${dd}`;
     };
 
+    // 普货物流海空陆多通道节点标准
+    const stepDefinitions = {
+      sea: {
+        names: ['仓库收货', '配载装箱', '出口报关', '开航海运', '抵港清关', '拆箱分拨', '妥投签收'],
+        descriptions: [
+          '集货仓已核对货品明细并完成签收入库。',
+          '货物已安排配载，装入集装箱并锁好封条。',
+          '报关单据已向始发港口海关申报，等待放行。',
+          '集装箱船已开航，正在海上运输途中。',
+          '货船抵达目的港口，进口报关单据提交并清关放行中。',
+          '集装箱运达保税仓库，完成拆箱分拨并装车派送。',
+          '收货人已顺利核对数量并签字签收。'
+        ]
+      },
+      air: {
+        names: ['仓库收货', '安检打板', '出口申报', '航班起飞', '机场落地', '极速派送', '妥投签收'],
+        descriptions: [
+          '空运集货仓已完成货物入库、称重及尺寸测量。',
+          '货物通过安全检查并完成航空板配载、绑扎。',
+          '报关资料已向始发机场海关申报并审核通过。',
+          '航班已起飞，正在空中快速运输途中。',
+          '航班落地目的机场，已卸载航空板并提交极速清关。',
+          '海关放行后，货品装入运输专车，安排紧急派送。',
+          '收货人已签收，货品完好妥投。'
+        ]
+      },
+      land: {
+        names: ['仓库收货', '装车封签', '口岸出境', '跨境陆运', '口岸清关', '派送上门', '妥投签收'],
+        descriptions: [
+          '陆路集货网点已收货并完成签收录入。',
+          '货品装入跨境大货车，已完成出港加封铅签。',
+          '货车抵达始发国口岸，申报出境海关并验放通过。',
+          '货车通过过境通道，正在跨境公路运输途中。',
+          '货车抵达目的国口岸，完成进口报关，换车或原车放行。',
+          '货品运抵目的国城市配送中心，正在派送上门。',
+          '收货人已开箱验货并确认签字签收。'
+        ]
+      }
+    };
+
     createApp({
       setup() {
         const currentRole = ref('customer');
@@ -624,7 +666,6 @@
         const currentUser = ref(null);
         const loginForm = ref({ username: '', password: '' });
 
-        const stepNames = ['仓库收货', '配载装箱', '出口报关', '跨境运输', '进口清关', '分拨派送', '收货签收'];
         const masterWaybills = ref([]);
         const subWaybills = ref([]);
         const customerConsignments = ref([]);
@@ -647,7 +688,7 @@
                 pieces: 15,
                 current_step: 3,
                 master_shipping_type: 'sea',
-                steps: stepNames.map((name, i) => ({
+                steps: stepDefinitions.sea.names.map((name, i) => ({
                   name,
                   time: i <= 3 ? '2026-06-01 14:20' : '',
                   photo: i === 1 ? 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=600&q=80' : '',
@@ -670,26 +711,33 @@
             if (subs) {
               subs.forEach(sub => {
                 const master = masterWaybills.value.find(m => m.id === sub.master_id);
-                sub.master_shipping_type = master ? master.shipping_type : 'sea';
+                const type = master ? master.shipping_type : 'sea';
+                sub.master_shipping_type = type;
                 
+                // 动态初始化或补足7步数据，并绑定正确的名字
+                const config = stepDefinitions[type];
                 if (!sub.steps || sub.steps.length === 0) {
                   sub.current_step = 0;
-                  sub.steps = stepNames.map((name, i) => ({
+                  sub.steps = config.names.map((name, i) => ({
                     name,
                     time: i === 0 ? getLocalTime() : '',
                     photo: '',
                     desc: ''
                   }));
                 } else {
-                  while (sub.steps.length < stepNames.length) {
+                  while (sub.steps.length < config.names.length) {
                     const currentLen = sub.steps.length;
                     sub.steps.push({
-                      name: stepNames[currentLen],
+                      name: config.names[currentLen],
                       time: '',
                       photo: '',
                       desc: ''
                     });
                   }
+                  // 顺便校准名字
+                  sub.steps.forEach((st, idx) => {
+                    st.name = config.names[idx] || st.name;
+                  });
                 }
               });
               subWaybills.value = subs;
@@ -705,20 +753,16 @@
           if (data) operators.value = data;
         };
 
-        const getStepDescription = (index) => {
-          const desc = [
-            '物流中心已核对货品明细并完成签收入库称重。',
-            '集货仓已完成货品合理配载并安排密封集装箱装载。',
-            '海关单据及发票等已向始发口岸申报海关。',
-            '运输工具顺利出发，跨境航行运输中。',
-            '货物抵达进口口岸，绿色通道极速清关，完成报税申报。',
-            '海关完成放行，货物已转运至我司网点开展二级拆箱与终端配送。',
-            '目的港客户已顺利收到全部货物并现场签收。'
-          ];
-          return desc[index];
+        const getStepDescription = (index, type = 'sea') => {
+          return stepDefinitions[type]?.descriptions[index] || '';
         };
 
-        const getStepName = (index) => stepNames[index];
+        const getStepNamesForSub = (sub) => {
+          if (!sub) return [];
+          const type = sub.master_shipping_type || 'sea';
+          return stepDefinitions[type]?.names || [];
+        };
+
         const getMasterWaybill = (masterId) => masterWaybills.value.find(m => m.id === masterId) || null;
         const getSubsForMaster = (masterId) => subWaybills.value.filter(s => s.master_id === masterId);
 
@@ -837,15 +881,22 @@
 
         const editSubProgress = (sub) => {
           const clonedSub = JSON.parse(JSON.stringify(sub));
-          while (clonedSub.steps.length < stepNames.length) {
+          const type = clonedSub.master_shipping_type || 'sea';
+          const config = stepDefinitions[type];
+
+          while (clonedSub.steps.length < config.names.length) {
             const currentLen = clonedSub.steps.length;
             clonedSub.steps.push({
-              name: stepNames[currentLen],
+              name: config.names[currentLen],
               time: '',
               photo: '',
               desc: ''
             });
           }
+          clonedSub.steps.forEach((st, idx) => {
+            st.name = config.names[idx] || st.name;
+          });
+
           editingSubProgress.value = clonedSub;
           tempFile.value = null;
           showEditModal.value = true;
@@ -987,6 +1038,10 @@
             return alert('请填写客户名称及查询账号');
           }
 
+          const master = getMasterWaybill(d.masterId);
+          const type = master ? master.shipping_type : 'sea';
+          const config = stepDefinitions[type];
+
           const newSubId = 'SUB-' + getLocalIDDate() + Math.floor(Math.random()*100).toString().padStart(2, '0');
           const newSub = {
             sub_id: newSubId,
@@ -998,7 +1053,7 @@
             volume: parseFloat(d.volume) || 0,
             pieces: parseInt(d.pieces) || 1,
             current_step: 0,
-            steps: stepNames.map((name, i) => ({
+            steps: config.names.map((name, i) => ({
               name,
               time: i === 0 ? getLocalTime() : '',
               photo: '',
@@ -1007,8 +1062,7 @@
           };
 
           if (!supabaseClient) {
-            const master = getMasterWaybill(d.masterId);
-            newSub.master_shipping_type = master ? master.shipping_type : 'sea';
+            newSub.master_shipping_type = type;
             subWaybills.value.push(newSub);
             showAddSubModal.value = false;
             return;
@@ -1114,11 +1168,11 @@
         return {
           currentRole, currentView, adminActiveTab, searchQuery, activeSub, activeMaster, zoomedPhoto,
           masterWaybills, subWaybills, customerConsignments, showEditModal, editingSubProgress,
-          tempFile, uploading, showAddMasterModal, newMasterData, showAddSubModal, newSubData, stepNames,
+          tempFile, uploading, showAddMasterModal, newMasterData, showAddSubModal, newSubData,
           showLoginModal, currentUser, loginForm, submitLogin, editSubProgress, saveSubProgressStatus,
           showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster,
           showAddOperatorModal, newOperatorData, operators, saveNewOperator, deleteOperator,
-          getStepDescription, getStepName, getMasterWaybill, getSubsForMaster, getShippingTypeBadge,
+          getStepDescription, getStepNamesForSub, getMasterWaybill, getSubsForMaster, getShippingTypeBadge,
           toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
           getTimelineLineHeight, zoomImage, setEditingStep,
           onPhotoSelected, addSubToMaster, saveNewSub, saveNewMaster,
@@ -1129,3 +1183,4 @@
   </script>
 </body>
 </html>
+<!-- END OF FILE cargo.html -->
