@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agnes AI 智能多模态助手 (本地图生图版)</title>
+    <title>Agnes AI 智能多模态助手 (多通道图生图版)</title>
     <!-- 引入 Tailwind CSS & Typography 插件 -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <!-- 引入 Marked 用于解析 Markdown -->
@@ -69,7 +69,7 @@
         <!-- 历史会话列表 -->
         <div class="flex-1 overflow-y-auto p-2 space-y-1" id="chatListContainer"></div>
 
-        <!-- 高级图像配置参数面板 (新增本地上传入口) -->
+        <!-- 高级图像配置参数面板 -->
         <div id="imageSettingsPanel" class="hidden p-4 border-t border-gray-800 bg-gray-900/40 space-y-3">
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">图像生成参数</h3>
             
@@ -87,7 +87,7 @@
                 </select>
             </div>
 
-            <!-- 图生图参考图 URL & 本地上传组合控件 -->
+            <!-- 图生图参考图 URL & 本地上传组合 -->
             <div>
                 <label class="block text-[11px] text-gray-400 mb-1">参考图 (图生图可选)</label>
                 <div class="flex gap-1.5">
@@ -96,12 +96,11 @@
                     
                     <label class="cursor-pointer bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-2.5 py-1.5 rounded-r text-xs flex items-center justify-center flex-shrink-0 transition-colors">
                         <span>本地上传</span>
-                        <!-- 隐藏的真实 file input -->
                         <input type="file" id="localImageInput" accept="image/*" class="hidden" onchange="handleLocalImageUpload(this)">
                     </label>
                 </div>
                 <span id="uploadStatus" class="text-[9px] text-gray-500 block mt-1 leading-normal">
-                    可直接粘贴公网URL，或点击本地上传生成临时链接。
+                    默认将采用 CDN 节点分发的高速临时通道。
                 </span>
             </div>
         </div>
@@ -173,7 +172,7 @@
         </div>
     </main>
 
-    <!-- 设置弹窗 -->
+    <!-- 设置弹窗 (新增 ImgBB 配置栏) -->
     <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -185,12 +184,18 @@
             
             <div class="space-y-3">
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">API Key</label>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">API Key (Agnes-AI)</label>
                     <input type="password" id="apiKey" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">API Base URL</label>
                     <input type="text" id="baseUrl" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                </div>
+                <!-- 进阶：专属 ImgBB 通道 -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ImgBB API Key (可选：图生图极速通道)</label>
+                    <input type="password" id="imgbbKey" placeholder="无 Key 将默认采用公共 CDN 托管通道" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                    <p class="text-[10px] text-gray-400 mt-1">可在 <a href="https://imgbb.com/" target="_blank" class="text-blue-500 underline font-medium">imgbb.com</a> 免费获取 Key 以彻底防范公共线路拥堵。</p>
                 </div>
             </div>
 
@@ -207,12 +212,14 @@
         let config = JSON.parse(localStorage.getItem('agnes_multi_config')) || {
             apiKey: 'sk-7Hs6a8wx78gpfAJB6XNQKIipv5UO1Km6PgLsVBubAZSyPUjN',
             baseUrl: 'https://apihub.agnes-ai.com/v1',
-            modelName: 'agnes-2.0-flash'
+            modelName: 'agnes-2.0-flash',
+            imgbbKey: '' // 默认不配置，走公共 CDN
         };
 
         window.onload = function() {
             document.getElementById('apiKey').value = config.apiKey;
             document.getElementById('baseUrl').value = config.baseUrl;
+            document.getElementById('imgbbKey').value = config.imgbbKey || '';
             document.getElementById('headerModelSelect').value = config.modelName;
             document.getElementById('mobileModelSelect').value = config.modelName;
 
@@ -253,7 +260,7 @@
             }
         }
 
-        // 核心：本地选择图片并自动上传临时网盘，获取公网直链 URL
+        // 双通道图片上传逻辑 (Telegraph CDN 公共通道 & ImgBB 专属极速通道)
         async function handleLocalImageUpload(input) {
             const file = input.files[0];
             if (!file) return;
@@ -261,39 +268,71 @@
             const statusSpan = document.getElementById('uploadStatus');
             const urlInput = document.getElementById('refImageUrl');
             
-            statusSpan.innerText = "⏳ 正在上传图片至临时托管，请稍候...";
+            statusSpan.innerText = "⏳ 正在上传图片，请稍候...";
             statusSpan.className = "text-[9px] text-blue-400 block mt-1 leading-normal";
 
             try {
-                const formData = new FormData();
-                formData.append('file', file);
-
-                // 使用 tmpfiles.org 免费临时托管（自动处理 CORS 跨域）
-                const response = await fetch('https://tmpfiles.org/api/v1/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error(`上传失败，状态码: ${response.status}`);
+                let directUrl = '';
+                if (config.imgbbKey) {
+                    statusSpan.innerText = "⏳ 正在通过您的 ImgBB 专属通道上传...";
+                    directUrl = await uploadToImgBB(file, config.imgbbKey);
+                } else {
+                    statusSpan.innerText = "⏳ 正在通过公共加速通道 (Telegraph) 上传...";
+                    directUrl = await uploadToTelegraph(file);
                 }
 
-                const resData = await response.json();
-                const viewerUrl = resData.data.url; // 例如 https://tmpfiles.org/12345/filename.png
-                
-                // 转换为公网直接下载直链 (替换域名子路径插入 /dl/)
-                const directUrl = viewerUrl.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
-
                 urlInput.value = directUrl;
-                statusSpan.innerText = "✅ 临时公网链接已生成，已自动填入输入框！";
+                statusSpan.innerText = "✅ 临时公网直链已生成，已自动填入输入框！";
                 statusSpan.className = "text-[9px] text-green-500 block mt-1 leading-normal";
             } catch (err) {
-                console.error('图片托管失败:', err);
-                statusSpan.innerText = `❌ 托管失败: ${err.message}`;
+                console.error('图片上传失败:', err);
+                statusSpan.innerText = `❌ 上传失败: ${err.message} (若公共通道连接不顺，建议配置专属 ImgBB API Key)`;
                 statusSpan.className = "text-[9px] text-red-500 block mt-1 leading-normal";
             } finally {
-                input.value = ''; // 重置 file 使得同图可重复上传
+                input.value = '';
             }
+        }
+
+        // 通道 1：Telegraph 匿名高速 CDN 上传
+        async function uploadToTelegraph(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('https://telegra.ph/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Telegraph 响应异常 (${response.status})`);
+            }
+
+            const data = await response.json();
+            if (data && data[0] && data[0].src) {
+                return 'https://telegra.ph' + data[0].src;
+            }
+            throw new Error('Telegraph 返回格式异常');
+        }
+
+        // 通道 2：ImgBB 专属 API 通道
+        async function uploadToImgBB(file, apiKey) {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`ImgBB 响应异常 (${response.status})`);
+            }
+
+            const data = await response.json();
+            if (data && data.data && data.data.url) {
+                return data.data.url;
+            }
+            throw new Error('ImgBB 返回格式异常');
         }
 
         function createNewChat() {
@@ -525,7 +564,7 @@
             toggleSendButtonState(false);
         }
 
-        // 图像生成功能 (深度融合了比例参数与图生图)
+        // 图像生成功能 (已集成 Telegraph / ImgBB 新引擎)
         async function handleImageGeneration(prompt, activeChat) {
             const size = document.getElementById('aspectRatioSelect').value;
             const refImg = document.getElementById('refImageUrl').value.trim();
@@ -565,7 +604,7 @@
 
             // 重置参考图、输入信息
             document.getElementById('refImageUrl').value = '';
-            document.getElementById('uploadStatus').innerText = "可直接粘贴图片URL，或点击本地上传生成临时链接。";
+            document.getElementById('uploadStatus').innerText = "默认将采用 CDN 节点分发的高速临时通道。";
             document.getElementById('uploadStatus').className = "text-[9px] text-gray-500 block mt-1 leading-normal";
 
             activeChat.messages.push({ 
@@ -578,7 +617,7 @@
             toggleSendButtonState(false);
         }
 
-        // 辅助函数：根据比例和清晰度计算视频物理像素 width & height
+        // 辅助函数：根据比例和清晰度计算视频物理像素
         function getVideoDimensions(ratio, resolution) {
             if (resolution === '1080p') {
                 if (ratio === '16:9') return { width: 1920, height: 1080 };
@@ -586,17 +625,17 @@
                 if (ratio === '1:1') return { width: 1080, height: 1080 };
                 if (ratio === '4:3') return { width: 1440, height: 1080 };
                 if (ratio === '3:2') return { width: 1620, height: 1080 };
-            } else { // 默认 720p 档位
+            } else { // 720p 档位
                 if (ratio === '16:9') return { width: 1280, height: 720 };
                 if (ratio === '9:16') return { width: 720, height: 1280 };
                 if (ratio === '1:1') return { width: 768, height: 768 };
                 if (ratio === '4:3') return { width: 960, height: 720 };
                 if (ratio === '3:2') return { width: 1080, height: 720 };
             }
-            return { width: 1152, height: 768 }; // 备用降级像素
+            return { width: 1152, height: 768 };
         }
 
-        // 视频生成 (集成高级比例和 720P/1080P 自适应解析)
+        // 视频生成
         async function handleVideoGeneration(prompt, activeChat) {
             const ratio = document.getElementById('videoRatioSelect').value;
             const resolution = document.getElementById('videoResolutionSelect').value;
@@ -611,8 +650,8 @@
                 body: JSON.stringify({
                     model: config.modelName,
                     prompt: prompt,
-                    width: width,   // 宽度像素
-                    height: height  // 高度像素
+                    width: width,
+                    height: height
                 })
             });
 
@@ -724,6 +763,7 @@
         function saveSettings() {
             config.apiKey = document.getElementById('apiKey').value.trim();
             config.baseUrl = document.getElementById('baseUrl').value.trim();
+            config.imgbbKey = document.getElementById('imgbbKey').value.trim();
             localStorage.setItem('agnes_multi_config', JSON.stringify(config));
             closeSettingsModal();
             alert('配置已保存！');
