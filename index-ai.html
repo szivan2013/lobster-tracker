@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agnes AI 智能多模态助手 (多通道图生图版)</title>
+    <meta "viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agnes AI 智能多模态助手 (黄金比例+同图连生版)</title>
     <!-- 引入 Tailwind CSS & Typography 插件 -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <!-- 引入 Marked 用于解析 Markdown -->
@@ -100,7 +100,7 @@
                     </label>
                 </div>
                 <span id="uploadStatus" class="text-[9px] text-gray-500 block mt-1 leading-normal">
-                    默认将采用 CDN 节点分发的高速临时通道。
+                    已内置您专属的 ImgBB 加速通道。
                 </span>
             </div>
         </div>
@@ -172,7 +172,7 @@
         </div>
     </main>
 
-    <!-- 设置弹窗 (新增 ImgBB 配置栏) -->
+    <!-- 设置弹窗 -->
     <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -191,7 +191,7 @@
                     <label class="block text-xs font-medium text-gray-600 mb-1">API Base URL</label>
                     <input type="text" id="baseUrl" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
                 </div>
-                <!-- 进阶：专属 ImgBB 通道 -->
+                <!-- ImgBB 配置栏 -->
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">ImgBB API Key (可选：图生图极速通道)</label>
                     <input type="password" id="imgbbKey" placeholder="无 Key 将默认采用公共 CDN 托管通道" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
@@ -209,17 +209,23 @@
     <script>
         let conversations = JSON.parse(localStorage.getItem('agnes_multi_conversations')) || [];
         let activeId = localStorage.getItem('agnes_multi_active_id') || null;
-        let config = JSON.parse(localStorage.getItem('agnes_multi_config')) || {
-            apiKey: 'sk-7Hs6a8wx78gpfAJB6XNQKIipv5UO1Km6PgLsVBubAZSyPUjN',
-            baseUrl: 'https://apihub.agnes-ai.com/v1',
-            modelName: 'agnes-2.0-flash',
-            imgbbKey: '' // 默认不配置，走公共 CDN
-        };
+        
+        // 读取本地缓存设置，若无配置或 imgbbKey 为空，则自动写入并初始化您的专属 ImgBB 密钥
+        let config = JSON.parse(localStorage.getItem('agnes_multi_config')) || {};
+        if (!config.apiKey) config.apiKey = 'sk-7Hs6a8wx78gpfAJB6XNQKIipv5UO1Km6PgLsVBubAZSyPUjN';
+        if (!config.baseUrl) config.baseUrl = 'https://apihub.agnes-ai.com/v1';
+        if (!config.modelName) config.modelName = 'agnes-2.0-flash';
+        
+        // 智能重写机制：如果检测到没有配置 imgbbKey，则默认强制写入该专属 Key
+        if (!config.imgbbKey) {
+            config.imgbbKey = 'ee012301d6f72802294e6eed0d07ad47';
+            localStorage.setItem('agnes_multi_config', JSON.stringify(config));
+        }
 
         window.onload = function() {
             document.getElementById('apiKey').value = config.apiKey;
             document.getElementById('baseUrl').value = config.baseUrl;
-            document.getElementById('imgbbKey').value = config.imgbbKey || '';
+            document.getElementById('imgbbKey').value = config.imgbbKey;
             document.getElementById('headerModelSelect').value = config.modelName;
             document.getElementById('mobileModelSelect').value = config.modelName;
 
@@ -260,7 +266,7 @@
             }
         }
 
-        // 双通道图片上传逻辑 (Telegraph CDN 公共通道 & ImgBB 专属极速通道)
+        // 双通道图片上传逻辑
         async function handleLocalImageUpload(input) {
             const file = input.files[0];
             if (!file) return;
@@ -293,7 +299,6 @@
             }
         }
 
-        // 通道 1：Telegraph 匿名高速 CDN 上传
         async function uploadToTelegraph(file) {
             const formData = new FormData();
             formData.append('file', file);
@@ -314,7 +319,6 @@
             throw new Error('Telegraph 返回格式异常');
         }
 
-        // 通道 2：ImgBB 专属 API 通道
         async function uploadToImgBB(file, apiKey) {
             const formData = new FormData();
             formData.append('image', file);
@@ -564,7 +568,7 @@
             toggleSendButtonState(false);
         }
 
-        // 图像生成功能 (已集成 Telegraph / ImgBB 新引擎)
+        // 图像生成功能
         async function handleImageGeneration(prompt, activeChat) {
             const size = document.getElementById('aspectRatioSelect').value;
             const refImg = document.getElementById('refImageUrl').value.trim();
@@ -602,10 +606,10 @@
 
             if (!imageUrl) throw new Error("接口未返回图片URL。");
 
-            // 重置参考图、输入信息
-            document.getElementById('refImageUrl').value = '';
-            document.getElementById('uploadStatus').innerText = "默认将采用 CDN 节点分发的高速临时通道。";
-            document.getElementById('uploadStatus').className = "text-[9px] text-gray-500 block mt-1 leading-normal";
+            // 成功后：不清除 refImageUrl，以便用户持续进行同图连续生图
+            // 仅重置提示文字，方便用户在页面上得到直观的保留反馈
+            document.getElementById('uploadStatus').innerText = "✅ 链接已保留，可继续输入新提示词进行生成。";
+            document.getElementById('uploadStatus').className = "text-[9px] text-green-500 block mt-1 leading-normal";
 
             activeChat.messages.push({ 
                 role: 'assistant', 
