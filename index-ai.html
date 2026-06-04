@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agnes AI 智能助手</title>
-    <!-- 引入 Tailwind CSS (含 Typography 插件以渲染漂亮的 Markdown 代码/列表) -->
+    <title>Agnes AI 智能多模态助手</title>
+    <!-- 引入 Tailwind CSS & Typography 插件 -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <!-- 引入 Marked 用于解析 Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        /* 优化代码块及行内代码的样式 */
         .prose pre {
             background-color: #1e293b !important;
             color: #f8fafc !important;
@@ -25,7 +24,6 @@
             color: #f8fafc !important;
             background-color: transparent !important;
             padding: 0 !important;
-            font-weight: normal;
         }
         /* 自定义滚动条 */
         ::-webkit-scrollbar {
@@ -39,27 +37,26 @@
             background: #cbd5e1;
             border-radius: 4px;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex overflow-hidden">
 
-    <!-- 移动端顶部导航栏 (仅在小屏幕显示) -->
+    <!-- 移动端顶部导航 (小屏) -->
     <div class="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-20">
         <button onclick="toggleSidebar(true)" class="p-2 hover:bg-gray-100 rounded-lg">
             <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
         </button>
-        <h1 id="mobileTitle" class="text-sm font-semibold truncate max-w-[200px]">当前对话</h1>
-        <button onclick="createNewChat()" class="p-2 hover:bg-gray-100 rounded-lg text-blue-600">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-        </button>
+        <h1 id="mobileTitle" class="text-sm font-semibold truncate max-w-[120px]">当前对话</h1>
+        <!-- 移动端简易模型选择 -->
+        <select id="mobileModelSelect" onchange="changeModel(this.value)" class="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white">
+            <option value="agnes-2.0-flash">💬 文本对话</option>
+            <option value="agnes-image-2.1-flash">🎨 图片生成</option>
+            <option value="agnes-video-v2.0">🎬 视频生成</option>
+        </select>
     </div>
 
-    <!-- 侧边栏 (ChatGPT 风格 dark 主题) -->
+    <!-- 侧边栏 (ChatGPT 风格) -->
     <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 w-64 bg-gray-950 text-gray-200 flex flex-col z-30 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 border-r border-gray-800">
-        <!-- 侧边栏顶部: 新建对话 -->
         <div class="p-4 border-b border-gray-800 flex items-center justify-between">
             <button onclick="createNewChat()" class="flex-1 flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -70,86 +67,72 @@
             </button>
         </div>
 
-        <!-- 侧边栏中部: 历史对话列表 -->
-        <div class="flex-1 overflow-y-auto p-2 space-y-1" id="chatListContainer">
-            <!-- 动态渲染历史对话 -->
-        </div>
+        <div class="flex-1 overflow-y-auto p-2 space-y-1" id="chatListContainer"></div>
 
-        <!-- 侧边栏底部: 设置与关于 -->
         <div class="p-4 border-t border-gray-800 space-y-2">
             <button onclick="openSettingsModal()" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-900 rounded-lg transition-colors text-sm text-gray-300 hover:text-white">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                API 配置与设置
+                接口配置与密钥
             </button>
         </div>
     </aside>
 
-    <!-- 遮罩层 (移动端侧边栏展开时) -->
     <div id="sidebarOverlay" onclick="toggleSidebar(false)" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20"></div>
 
     <!-- 右侧主对话区 -->
     <main class="flex-grow flex flex-col h-screen pt-14 lg:pt-0 relative bg-white">
         
-        <!-- 顶部对话状态 -->
+        <!-- 顶部控制状态栏 -->
         <header class="hidden lg:flex h-14 border-b border-gray-100 items-center px-6 justify-between bg-white z-10">
-            <span id="headerChatTitle" class="font-semibold text-gray-800 text-sm">选择或新建一个对话</span>
-            <span id="currentModelBadge" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">agnes-2.0-flash</span>
+            <span id="headerChatTitle" class="font-semibold text-gray-800 text-sm">新对话</span>
+            
+            <!-- 顶栏模型选择下拉框 -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500 font-medium">当前模型：</span>
+                <select id="headerModelSelect" onchange="changeModel(this.value)" class="text-xs font-semibold border border-gray-200 rounded-lg px-3 py-1.5 bg-slate-50 text-slate-700 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500">
+                    <option value="agnes-2.0-flash">💬 文本对话 (agnes-2.0-flash)</option>
+                    <option value="agnes-image-2.1-flash">🎨 图片生成 (agnes-image-2.1-flash)</option>
+                    <option value="agnes-video-v2.0">🎬 视频生成 (agnes-video-v2.0)</option>
+                </select>
+            </div>
         </header>
 
-        <!-- 消息气泡展示区 -->
-        <div id="chatMessageArea" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col">
-            <!-- 气泡动态填充 -->
-        </div>
+        <!-- 消息显示区 -->
+        <div id="chatMessageArea" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col"></div>
 
         <!-- 底部输入栏 -->
         <div class="border-t border-gray-100 bg-white p-4">
             <div class="max-w-3xl mx-auto relative flex flex-col space-y-2">
-                <!-- 输入框及控制按钮 -->
                 <div class="flex items-end gap-2 border border-gray-200 rounded-xl p-2 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 bg-white">
-                    <textarea id="promptInput" rows="1" oninput="autoResizeTextarea(this)" placeholder="向 Agnes AI 发送消息..." 
+                    <textarea id="promptInput" rows="1" oninput="autoResizeTextarea(this)" placeholder="输入提示词描述您想生成或聊天的内容..." 
                               class="flex-grow resize-none max-h-40 outline-none px-2 py-1.5 text-sm bg-transparent"
                               onkeydown="handleEnterKey(event)"></textarea>
                     <button id="sendBtn" onclick="handleSendMessage()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors flex-shrink-0">
                         <svg class="w-4 h-4 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
                     </button>
                 </div>
-                <div class="text-[10px] text-gray-400 text-center">
-                    对话数据和密钥均保存在您浏览器的 LocalStorage 中。
-                </div>
             </div>
         </div>
     </main>
 
-    <!-- 设置模态框 -->
+    <!-- 设置弹窗 -->
     <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-base font-semibold text-gray-800">API 接口与参数设置</h3>
+                <h3 class="text-base font-semibold text-gray-800">API 参数配置</h3>
                 <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-gray-600">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             
             <div class="space-y-3">
-                <!-- API Key -->
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">API Key</label>
-                    <input type="password" id="apiKey" placeholder="sk-..." 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                    <input type="password" id="apiKey" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
                 </div>
-
-                <!-- Base URL -->
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">API Base URL</label>
-                    <input type="text" id="baseUrl" placeholder="https://apihub.agnes-ai.com/v1" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
-                </div>
-
-                <!-- Model Name -->
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">模型名称 (Model)</label>
-                    <input type="text" id="modelName" placeholder="agnes-2.0-flash" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
+                    <input type="text" id="baseUrl" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs">
                 </div>
             </div>
 
@@ -160,51 +143,48 @@
         </div>
     </div>
 
-    <!-- 交互脚本 -->
     <script>
-        // 1. 初始化变量与 LocalStorage
-        let conversations = JSON.parse(localStorage.getItem('agnes_conversations')) || [];
-        let activeId = localStorage.getItem('agnes_active_id') || null;
-        let config = JSON.parse(localStorage.getItem('agnes_config')) || {
+        let conversations = JSON.parse(localStorage.getItem('agnes_multi_conversations')) || [];
+        let activeId = localStorage.getItem('agnes_multi_active_id') || null;
+        let config = JSON.parse(localStorage.getItem('agnes_multi_config')) || {
             apiKey: 'sk-7Hs6a8wx78gpfAJB6XNQKIipv5UO1Km6PgLsVBubAZSyPUjN',
             baseUrl: 'https://apihub.agnes-ai.com/v1',
             modelName: 'agnes-2.0-flash'
         };
 
-        // 页面首次载入逻辑
         window.onload = function() {
-            // 装载配置输入框
             document.getElementById('apiKey').value = config.apiKey;
             document.getElementById('baseUrl').value = config.baseUrl;
-            document.getElementById('modelName').value = config.modelName;
-            document.getElementById('currentModelBadge').innerText = config.modelName;
+            document.getElementById('headerModelSelect').value = config.modelName;
+            document.getElementById('mobileModelSelect').value = config.modelName;
 
-            // 检查是否有历史对话，若没有则自动新建一个
             if (conversations.length === 0) {
                 createNewChat();
             } else {
                 if (!activeId || !conversations.some(c => c.id === activeId)) {
                     activeId = conversations[0].id;
                 }
-                renderSidebarList();
-                renderActiveMessages();
+                saveAndRefresh();
             }
         };
 
-        // 2. 对话管理 (增删查改)
+        function changeModel(val) {
+            config.modelName = val;
+            localStorage.setItem('agnes_multi_config', JSON.stringify(config));
+            document.getElementById('headerModelSelect').value = val;
+            document.getElementById('mobileModelSelect').value = val;
+        }
+
         function createNewChat() {
             const newId = 'chat_' + Date.now();
-            const newChat = {
+            conversations.unshift({
                 id: newId,
                 title: '新建对话',
                 messages: []
-            };
-            conversations.unshift(newChat);
+            });
             activeId = newId;
             saveAndRefresh();
             toggleSidebar(false);
-            
-            // 聚焦输入框
             document.getElementById('promptInput').focus();
         }
 
@@ -215,32 +195,27 @@
         }
 
         function deleteConversation(e, id) {
-            e.stopPropagation(); // 阻止触发切换对话事件
+            e.stopPropagation();
             if (confirm('确认删除当前对话吗？')) {
                 conversations = conversations.filter(c => c.id !== id);
                 if (activeId === id) {
                     activeId = conversations.length > 0 ? conversations[0].id : null;
                 }
-                if (conversations.length === 0) {
-                    createNewChat();
-                } else {
-                    saveAndRefresh();
-                }
+                if (conversations.length === 0) createNewChat();
+                else saveAndRefresh();
             }
         }
 
         function saveAndRefresh() {
-            localStorage.setItem('agnes_conversations', JSON.stringify(conversations));
-            localStorage.setItem('agnes_active_id', activeId);
+            localStorage.setItem('agnes_multi_conversations', JSON.stringify(conversations));
+            localStorage.setItem('agnes_multi_active_id', activeId);
             renderSidebarList();
             renderActiveMessages();
         }
 
-        // 3. 渲染视图层
         function renderSidebarList() {
             const container = document.getElementById('chatListContainer');
             container.innerHTML = '';
-
             conversations.forEach(chat => {
                 const isActive = chat.id === activeId;
                 const activeClasses = isActive ? 'bg-gray-900 border-gray-800 text-white' : 'hover:bg-gray-900/50 border-transparent text-gray-400 hover:text-gray-200';
@@ -248,7 +223,6 @@
                 const item = document.createElement('div');
                 item.className = `flex items-center justify-between group p-2.5 rounded-lg border text-sm cursor-pointer transition-all ${activeClasses}`;
                 item.onclick = () => switchConversation(chat.id);
-
                 item.innerHTML = `
                     <div class="flex items-center gap-2.5 min-w-0 flex-1">
                         <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
@@ -265,42 +239,31 @@
         function renderActiveMessages() {
             const activeChat = conversations.find(c => c.id === activeId);
             const container = document.getElementById('chatMessageArea');
-            const headerTitle = document.getElementById('headerChatTitle');
-            const mobileTitle = document.getElementById('mobileTitle');
-
             container.innerHTML = '';
 
-            if (!activeChat) {
-                headerTitle.innerText = '暂无对话';
-                mobileTitle.innerText = '暂无对话';
-                return;
-            }
+            if (!activeChat) return;
 
-            headerTitle.innerText = activeChat.title;
-            mobileTitle.innerText = activeChat.title;
+            document.getElementById('headerChatTitle').innerText = activeChat.title;
+            document.getElementById('mobileTitle').innerText = activeChat.title;
 
             if (activeChat.messages.length === 0) {
                 container.innerHTML = `
                     <div class="flex-grow flex flex-col justify-center items-center text-gray-400 space-y-2">
-                        <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                        <p class="text-sm font-medium">新话题已准备就绪，发送一条消息开始吧！</p>
+                        <p class="text-sm font-medium">请选择对应的模型，输入您的提示词发起创作</p>
                     </div>
                 `;
                 return;
             }
 
             activeChat.messages.forEach(msg => {
-                appendMessageBubble(msg.role, msg.content, false);
+                appendMessageBubble(msg.role, msg.content, msg.type, msg.mediaUrl, false);
             });
-
             scrollToBottom();
         }
 
-        // 渲染单条气泡到页面
-        function appendMessageBubble(role, content, isStreaming) {
+        // 核心：自适应渲染媒体或文本消息
+        function appendMessageBubble(role, content, type, mediaUrl, isPending) {
             const container = document.getElementById('chatMessageArea');
-            
-            // 移开占位空白提示
             const placeholder = container.querySelector('.flex-grow');
             if (placeholder) placeholder.remove();
 
@@ -309,22 +272,43 @@
             wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} w-full`;
 
             const bubble = document.createElement('div');
+            
             if (isUser) {
-                // 用户气泡：右侧，纯色背景
                 bubble.className = "bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-2.5 max-w-[85%] md:max-w-[75%] shadow-sm text-sm whitespace-pre-wrap leading-relaxed";
                 bubble.innerText = content;
             } else {
-                // 模型气泡：左侧，配合 Markdown prose 排版样式
-                bubble.className = "prose prose-slate prose-sm max-w-[85%] md:max-w-[75%] bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-sm leading-relaxed text-gray-800";
-                bubble.id = isStreaming ? "streaming-bubble" : "";
-                bubble.innerHTML = marked.parse(content);
+                bubble.className = "bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-2.5 max-w-[85%] md:max-w-[75%] shadow-sm text-sm text-gray-800 leading-relaxed";
+                
+                if (isPending) {
+                    bubble.id = "pending-bubble";
+                    bubble.innerHTML = `<div class="flex items-center gap-2 text-gray-500">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span>模型正在生成中，请耐心等候...</span>
+                    </div>`;
+                } else {
+                    if (type === 'image' && mediaUrl) {
+                        bubble.innerHTML = `<div class="space-y-2">
+                            <img src="${mediaUrl}" alt="Generated Image" class="rounded-lg max-w-full h-auto shadow-sm max-h-[400px]">
+                            <p class="text-xs text-gray-400 mt-1">Prompt: ${content}</p>
+                        </div>`;
+                    } else if (type === 'video' && mediaUrl) {
+                        bubble.innerHTML = `<div class="space-y-2">
+                            <video src="${mediaUrl}" controls class="rounded-lg max-w-full shadow-sm max-h-[400px]"></video>
+                            <p class="text-xs text-gray-400 mt-1">Prompt: ${content}</p>
+                        </div>`;
+                    } else {
+                        // 文本 Markdown 解析
+                        bubble.className += " prose prose-slate prose-sm";
+                        bubble.innerHTML = marked.parse(content);
+                    }
+                }
             }
 
             wrapper.appendChild(bubble);
             container.appendChild(wrapper);
         }
 
-        // 4. 对话通信与流式传输
+        // 5. 对话提交处理主入口
         async function handleSendMessage() {
             const input = document.getElementById('promptInput');
             const prompt = input.value.trim();
@@ -333,106 +317,212 @@
             const activeChat = conversations.find(c => c.id === activeId);
             if (!activeChat) return;
 
-            // 1. 本地保存用户消息
             activeChat.messages.push({ role: 'user', content: prompt });
-            
-            // 2. 如果是第一条消息，自动更新对话标题
             if (activeChat.title === '新建对话') {
-                activeChat.title = prompt.length > 15 ? prompt.slice(0, 15) + '...' : prompt;
+                activeChat.title = prompt.length > 12 ? prompt.slice(0, 12) + '...' : prompt;
             }
 
-            // 清空输入框并更新 UI
             input.value = '';
             input.style.height = 'auto';
             saveAndRefresh();
 
-            // 禁用按钮防多次触发
             toggleSendButtonState(true);
-
-            // 3. 构建临时 AI 气泡等待流式传输
-            appendMessageBubble('assistant', '', true);
-            const streamingBubble = document.getElementById('streaming-bubble');
+            appendMessageBubble('assistant', '', null, null, true);
             scrollToBottom();
 
-            let fullResult = '';
+            // 根据模型分流请求逻辑
             try {
-                // 发送完整对话历史
-                const response = await fetch(`${config.baseUrl}/chat/completions`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${config.apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: config.modelName,
-                        messages: activeChat.messages, // 关键：打包整条历史上下文
-                        stream: true
-                    })
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.error?.message || `网络响应异常, 状态码: ${response.status}`);
+                if (config.modelName === 'agnes-image-2.1-flash') {
+                    await handleImageGeneration(prompt, activeChat);
+                } else if (config.modelName === 'agnes-video-v2.0') {
+                    await handleVideoGeneration(prompt, activeChat);
+                } else {
+                    await handleTextStreaming(activeChat);
                 }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder("utf-8");
-                let buffer = '';
-
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop();
-
-                    for (const line of lines) {
-                        const cleanedLine = line.trim();
-                        if (!cleanedLine) continue;
-                        if (cleanedLine === 'data: [DONE]') continue;
-
-                        if (cleanedLine.startsWith('data: ')) {
-                            try {
-                                const jsonStr = cleanedLine.slice(6);
-                                const parsed = JSON.parse(jsonStr);
-                                const content = parsed.choices[0]?.delta?.content || '';
-                                if (content) {
-                                    fullResult += content;
-                                    // 动态渲染实时 Markdown
-                                    streamingBubble.innerHTML = marked.parse(fullResult);
-                                    scrollToBottom();
-                                }
-                            } catch (e) {
-                                console.warn('JSON片段解析失败', e);
-                            }
-                        }
-                    }
-                }
-
-                // 传输结束，将最终助手回复落库
-                activeChat.messages.push({ role: 'assistant', content: fullResult });
-                saveAndRefresh();
-
             } catch (err) {
-                console.error(err);
-                if (streamingBubble) {
-                    streamingBubble.classList.add('text-red-500');
-                    streamingBubble.innerText = `请求出错: ${err.message}`;
+                const pending = document.getElementById('pending-bubble');
+                if (pending) {
+                    pending.innerHTML = `<span class="text-red-500 font-medium">请求失败: ${err.message}</span>`;
                 }
-            } finally {
                 toggleSendButtonState(false);
             }
         }
 
-        // 5. 辅助与 UI 控件
+        // 5.1 文本对话流式传输
+        async function handleTextStreaming(activeChat) {
+            const response = await fetch(`${config.baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${config.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: config.modelName,
+                    messages: activeChat.messages,
+                    stream: true
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `状态码: ${response.status}`);
+            }
+
+            const pending = document.getElementById('pending-bubble');
+            pending.id = "streaming-bubble";
+            pending.className += " prose prose-slate prose-sm";
+            pending.innerHTML = "";
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let buffer = '';
+            let fullText = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    const cleanedLine = line.trim();
+                    if (!cleanedLine || cleanedLine === 'data: [DONE]') continue;
+                    if (cleanedLine.startsWith('data: ')) {
+                        try {
+                            const parsed = JSON.parse(cleanedLine.slice(6));
+                            const content = parsed.choices[0]?.delta?.content || '';
+                            if (content) {
+                                fullText += content;
+                                pending.innerHTML = marked.parse(fullText);
+                                scrollToBottom();
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            activeChat.messages.push({ role: 'assistant', content: fullText, type: 'text' });
+            saveAndRefresh();
+            toggleSendButtonState(false);
+        }
+
+        // 5.2 图像生成同步处理
+        async function handleImageGeneration(prompt, activeChat) {
+            const response = await fetch(`${config.baseUrl}/images/generations`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${config.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: config.modelName,
+                    prompt: prompt,
+                    size: '1024x1024'
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `图片生成失败，状态码: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const imageUrl = data.data[0]?.url;
+
+            if (!imageUrl) throw new Error("接口未返回图片URL。");
+
+            activeChat.messages.push({ 
+                role: 'assistant', 
+                content: prompt, 
+                type: 'image', 
+                mediaUrl: imageUrl 
+            });
+            saveAndRefresh();
+            toggleSendButtonState(false);
+        }
+
+        // 5.3 视频生成异步任务 + 轮询处理
+        async function handleVideoGeneration(prompt, activeChat) {
+            // Step 1: 创建视频任务
+            const response = await fetch(`${config.baseUrl}/videos`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${config.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: config.modelName,
+                    prompt: prompt
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `任务创建失败，状态码: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const taskId = data.id || data.task_id;
+
+            if (!taskId) throw new Error("未能获取到任务ID。");
+
+            const pending = document.getElementById('pending-bubble');
+
+            // Step 2: 开启轮询逻辑
+            let pollCount = 0;
+            const pollInterval = setInterval(async () => {
+                pollCount++;
+                try {
+                    const statusRes = await fetch(`${config.baseUrl}/videos/${taskId}`, {
+                        headers: { 'Authorization': `Bearer ${config.apiKey}` }
+                    });
+                    
+                    if (!statusRes.ok) throw new Error(`查询状态失败 (${statusRes.status})`);
+                    
+                    const statusData = await statusRes.json();
+                    
+                    if (statusData.status === 'completed') {
+                        clearInterval(pollInterval);
+                        const videoUrl = statusData.remixed_from_video_id; // 官方返回体存放视频URL的字段
+                        
+                        activeChat.messages.push({
+                            role: 'assistant',
+                            content: prompt,
+                            type: 'video',
+                            mediaUrl: videoUrl
+                        });
+                        saveAndRefresh();
+                        toggleSendButtonState(false);
+
+                    } else if (statusData.status === 'failed') {
+                        clearInterval(pollInterval);
+                        pending.innerHTML = `<span class="text-red-500 font-medium">视频渲染失败: ${statusData.error || '服务器端渲染异常'}</span>`;
+                        toggleSendButtonState(false);
+                    } else {
+                        // 排队或生成中
+                        const progress = statusData.progress !== undefined ? `${statusData.progress}%` : '排队中...';
+                        pending.innerHTML = `<div class="flex items-center gap-2.5 text-slate-500">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                            <span>正在生成视频中 (进度: ${progress})</span>
+                        </div>`;
+                    }
+                } catch (e) {
+                    clearInterval(pollInterval);
+                    pending.innerHTML = `<span class="text-red-500 font-medium">轮询中断: ${e.message}</span>`;
+                    toggleSendButtonState(false);
+                }
+            }, 4000); // 4秒轮询一次
+        }
+
+        // 6. 工具辅助函数
         function autoResizeTextarea(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = textarea.scrollHeight + 'px';
         }
 
         function handleEnterKey(event) {
-            // 支持 Enter 发送，Shift+Enter 换行
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 handleSendMessage();
@@ -459,7 +549,6 @@
             }
         }
 
-        // 侧边栏及配置弹窗开关
         function toggleSidebar(show) {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
@@ -483,13 +572,9 @@
         function saveSettings() {
             config.apiKey = document.getElementById('apiKey').value.trim();
             config.baseUrl = document.getElementById('baseUrl').value.trim();
-            config.modelName = document.getElementById('modelName').value.trim();
-
-            localStorage.setItem('agnes_config', JSON.stringify(config));
-            document.getElementById('currentModelBadge').innerText = config.modelName;
-            
+            localStorage.setItem('agnes_multi_config', JSON.stringify(config));
             closeSettingsModal();
-            alert('参数已保存在本地！');
+            alert('配置已成功保存！');
         }
     </script>
 </body>
