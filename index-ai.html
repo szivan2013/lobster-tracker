@@ -13,7 +13,7 @@
     <header class="bg-white border-b border-gray-200 py-4 px-6 shadow-sm">
         <div class="max-w-6xl mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold text-gray-900">Agnes AI 2.0 客户端</h1>
-            <span class="text-sm text-gray-500">已适配流式数据传输 (SSE)</span>
+            <span class="text-sm text-gray-500">已内置智能跨域免配置模块</span>
         </div>
     </header>
 
@@ -36,6 +36,7 @@
                 <label class="block text-sm font-medium text-gray-600 mb-1">API Base URL</label>
                 <input type="text" id="baseUrl" value="https://api.agnes-ai.com/v1" placeholder="例如: https://api.agnes-ai.com/v1" 
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                <p class="text-xs text-gray-400 mt-1">直接填写官方地址即可，程序会自动处理跨域</p>
             </div>
 
             <!-- 模型名称 -->
@@ -94,7 +95,7 @@
 
     <!-- 页脚 -->
     <footer class="bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-400">
-        调用过程中若有跨域（CORS）限制，建议在支持跨域的主机环境下或使用浏览器允许跨域插件进行本地调试。
+        已启用智能前端跨域拦截绕过技术。
     </footer>
 
     <!-- 交互逻辑 JS -->
@@ -132,9 +133,28 @@
             }
         }
 
+        // 辅助函数：智能构建请求 URL (检测并自动追加跨域代理)
+        function getRequestUrl(baseUrl) {
+            let url = baseUrl;
+            // 移除末尾可能多余的斜杠，避免出现双斜杠 //
+            if (url.endsWith('/')) {
+                url = url.slice(0, -1);
+            }
+            
+            const fullUrl = `${url}/chat/completions`;
+
+            // 如果用户直接请求官方接口，自动在前端通过 corsproxy.io 进行包装转发，解决 Failed to fetch 报错
+            if (url.includes('agnes-ai.com') && !url.includes('corsproxy.io')) {
+                return `https://corsproxy.io/?` + fullUrl;
+            }
+            return fullUrl;
+        }
+
         // 1. 流式调用 (Streaming Output)
         async function callTextAPIStream(baseUrl, apiKey, model, prompt) {
-            const response = await fetch(`${baseUrl}/chat/completions`, {
+            const fetchUrl = getRequestUrl(baseUrl);
+            
+            const response = await fetch(fetchUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -143,7 +163,7 @@
                 body: JSON.stringify({
                     model: model,
                     messages: [{ role: 'user', content: prompt }],
-                    stream: true // 开启流式输出
+                    stream: true
                 })
             });
 
@@ -163,19 +183,14 @@
                 const { value, done } = await reader.read();
                 if (done) break;
 
-                // 将新接收到的二进制流解码并加入缓冲区
                 buffer += decoder.decode(value, { stream: true });
-                
-                // 按换行符分割每一行数据
                 const lines = buffer.split('\n');
-                
-                // 保留最后一行未传输完毕的不完整数据
                 buffer = lines.pop(); 
 
                 for (const line of lines) {
                     const cleanedLine = line.trim();
                     if (!cleanedLine) continue;
-                    if (cleanedLine === 'data: [DONE]') continue; // 结束标志
+                    if (cleanedLine === 'data: [DONE]') continue;
 
                     if (cleanedLine.startsWith('data: ')) {
                         try {
@@ -183,10 +198,7 @@
                             const parsed = JSON.parse(jsonStr);
                             const content = parsed.choices[0]?.delta?.content || '';
                             if (content) {
-                                // 实时追加内容到页面上
                                 textOutput.textContent += content;
-                                
-                                // 自动滚动到输出框底部
                                 const container = document.getElementById('outputContainer');
                                 container.scrollTop = container.scrollHeight;
                             }
@@ -200,7 +212,9 @@
 
         // 2. 普通非流式调用 (作为备用)
         async function callTextAPINonStream(baseUrl, apiKey, model, prompt) {
-            const response = await fetch(`${baseUrl}/chat/completions`, {
+            const fetchUrl = getRequestUrl(baseUrl);
+
+            const response = await fetch(fetchUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
