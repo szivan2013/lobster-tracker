@@ -1,4 +1,3 @@
-<!-- START OF FILE cargo.html -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1321,3 +1320,37 @@
 
           if (!supabaseClient) {
             operators.value = operators.value.filter(o => o.username !== username);
+            return;
+          }
+
+          const { error } = await supabaseClient.from('cargo_operators').delete().eq('username', username);
+          if (error) {
+            alert('账户删除失败: ' + error.message);
+          } else {
+            loadOperators();
+          }
+        };
+
+        onMounted(() => {
+          loadDataFromSupabase();
+        });
+
+        return {
+          currentRole, currentView, adminActiveTab, searchQuery, activeSub, activeMaster, zoomedPhoto,
+          adminSearchQuery, adminOperatorFilter, adminDateFilter,
+          masterWaybills, subWaybills, customerConsignments, showEditModal, editingSubProgress,
+          tempFile, uploading, showAddMasterModal, newMasterData, showAddSubModal, newSubData,
+          showLoginModal, currentUser, loginForm, submitLogin, editSubProgress, saveSubProgressStatus,
+          showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster,
+          showAddOperatorModal, newOperatorData, operators, saveNewOperator, deleteOperator,
+          getStepDescription, getStepNamesForSub, getMasterWaybill, getSubsForMaster, getShippingTypeBadge,
+          toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
+          getTimelineLineHeight, zoomImage, setEditingStep,
+          onPhotoSelected, addSubToMaster, saveNewSub, saveNewMaster,
+          getFilteredSubsForMaster, getVisibleMasters, formatLocalTime: getLocalTime
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
