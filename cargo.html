@@ -135,6 +135,7 @@
               <h4 class="font-bold text-slate-800 text-sm group-hover:text-teal-600 transition">
                 📦 {{ sub.product_name }}
               </h4>
+              <p class="text-[10px] text-slate-400 font-mono" v-if="sub.business_no">业务单号: {{ sub.business_no }}</p>
               <p class="text-[10px] text-slate-400 font-mono">主单航次: {{ sub.master_id }}</p>
             </div>
             <div class="text-right space-y-1">
@@ -173,6 +174,7 @@
             <div>
               <p class="text-teal-400 text-[9px] uppercase tracking-widest font-bold">Waybill ID</p>
               <h3 class="text-lg font-mono font-bold tracking-wider text-slate-100">{{ activeSub.sub_id }}</h3>
+              <p class="text-[11px] text-slate-400 mt-0.5" v-if="activeSub.business_no">业务单号：<span class="font-mono text-teal-300 font-bold">{{ activeSub.business_no }}</span></p>
               <p class="text-[11px] text-slate-400 mt-0.5">客户：{{ activeSub.customer_name }}</p>
             </div>
             <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-white/20 backdrop-blur-xs bg-white/5">
@@ -276,7 +278,7 @@
               <input 
                 v-model="adminSearchQuery" 
                 type="text" 
-                placeholder="搜索客户/分单号/物品..." 
+                placeholder="搜索客户/分单号/业务单号..." 
                 class="p-2.5 rounded-xl border border-slate-100 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-teal-500 font-sans"
               />
               <input 
@@ -331,9 +333,10 @@
                 <div class="space-y-2">
                   <div v-for="sub in getFilteredSubsForMaster(master.id)" :key="sub.sub_id" class="bg-slate-50/70 border border-slate-100/50 p-3 rounded-xl text-xs flex justify-between items-center">
                     <div class="flex-1 min-w-0 mr-2">
-                      <div class="font-mono font-bold text-slate-800 flex items-center space-x-1.5">
+                      <div class="font-mono font-bold text-slate-800 flex flex-wrap items-center gap-1.5">
                         <span>{{ sub.sub_id }}</span>
                         <span class="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-bold">{{ sub.customer_account }}</span>
+                        <span v-if="sub.business_no" class="text-[9px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-mono font-bold">业务单: {{ sub.business_no }}</span>
                       </div>
                       <div class="text-slate-500 mt-0.5 text-[11px] font-semibold truncate">{{ sub.customer_name }} - {{ sub.product_name }}</div>
                       
@@ -444,6 +447,7 @@
         <h3 class="font-bold text-sm text-slate-800 border-b border-slate-50 pb-2">关联客户货物到主单</h3>
         <div class="space-y-3 text-xs">
           <input type="text" v-model="newSubData.customer_account" placeholder="客户查询账号 (如: CUST-YANG)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
+          <input type="text" v-model="newSubData.business_no" placeholder="业务单号 / 系统提单号 (选填)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           <input type="text" v-model="newSubData.customer_name" placeholder="客户简称 / 抬头 (如: 顺风行贸易)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           <input type="text" v-model="newSubData.product_name" placeholder="货物描述 (如: 五金配件与防尘网)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           <div class="grid grid-cols-3 gap-2">
@@ -524,6 +528,10 @@
           <div>
             <label class="block text-slate-400 mb-1">分单号（只读）</label>
             <input type="text" v-model="editingSubData.sub_id" disabled class="w-full p-2.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-400 font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">系统业务单号</label>
+            <input type="text" v-model="editingSubData.business_no" placeholder="请录入业务单号 (选填)" class="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none">
           </div>
           <div>
             <label class="block text-slate-400 mb-1">客户查询账号</label>
@@ -739,7 +747,7 @@
         const newMasterData = ref({ shipping_type: 'sea' });
 
         const showAddSubModal = ref(false);
-        const newSubData = ref({ masterId: '', customer_account: '', customer_name: '', product_name: '', weight: '', volume: '', pieces: '' });
+        const newSubData = ref({ masterId: '', customer_account: '', customer_name: '', product_name: '', business_no: '', weight: '', volume: '', pieces: '' });
 
         const showEditSubModal = ref(false);
         const editingSubData = ref(null);
@@ -768,6 +776,7 @@
                 customer_account: 'CUST-YANG',
                 customer_name: '正泰商贸',
                 product_name: '高档不锈钢厨具与货架',
+                business_no: 'SYS-889921',
                 weight: '120.5',
                 volume: '2.4',
                 pieces: 15,
@@ -801,9 +810,10 @@
                 const type = master ? master.shipping_type : 'sea';
                 sub.master_shipping_type = type;
                 
-                // 确保创建人和最新更新人字段有值，防止旧数据为空
+                // 兜底预防老数据没有列返回 null/undefined
                 sub.created_by = sub.created_by || 'system';
                 sub.updated_by = sub.updated_by || 'system';
+                sub.business_no = sub.business_no || '';
 
                 // 动态初始化或补足7步数据，并绑定正确的名字
                 const config = stepDefinitions[type];
@@ -857,18 +867,19 @@
         const getMasterWaybill = (masterId) => masterWaybills.value.find(m => m.id === masterId) || null;
         const getSubsForMaster = (masterId) => subWaybills.value.filter(s => s.master_id === masterId);
 
-        // 核心：后台对每个主单内的子单进行高级过滤
+        // 后台对每个主单内的子单进行高级过滤（已新增业务单号搜索）
         const getFilteredSubsForMaster = (masterId) => {
           let subs = subWaybills.value.filter(s => s.master_id === masterId);
           
-          // 1. 客户名称、分单号、描述、客户账号过滤
+          // 1. 客户名称、分单号、描述、客户账号、以及新加入的“业务单号”全局模糊检索
           if (adminSearchQuery.value) {
             const q = adminSearchQuery.value.trim().toLowerCase();
             subs = subs.filter(s => 
               (s.customer_name && s.customer_name.toLowerCase().includes(q)) ||
               (s.customer_account && s.customer_account.toLowerCase().includes(q)) ||
               (s.sub_id && s.sub_id.toLowerCase().includes(q)) ||
-              (s.product_name && s.product_name.toLowerCase().includes(q))
+              (s.product_name && s.product_name.toLowerCase().includes(q)) ||
+              (s.business_no && s.business_no.toLowerCase().includes(q))
             );
           }
 
@@ -1172,6 +1183,7 @@
             customer_account: '',
             customer_name: '',
             product_name: '进口生活普货',
+            business_no: '',
             weight: '',
             volume: '',
             pieces: ''
@@ -1200,6 +1212,7 @@
             customer_account: d.customer_account.trim().toUpperCase(),
             customer_name: d.customer_name,
             product_name: d.product_name,
+            business_no: d.business_no ? d.business_no.trim() : '', // 新增字段：系统业务单号
             weight: parseFloat(d.weight) || 0,
             volume: parseFloat(d.volume) || 0,
             pieces: parseInt(d.pieces) || 1,
@@ -1259,6 +1272,7 @@
               customer_account: d.customer_account.trim().toUpperCase(),
               customer_name: d.customer_name,
               product_name: d.product_name,
+              business_no: d.business_no ? d.business_no.trim() : '', // 支持在此修改系统业务单号
               weight: parseFloat(d.weight) || 0,
               volume: parseFloat(d.volume) || 0,
               pieces: parseInt(d.pieces) || 1,
@@ -1307,38 +1321,3 @@
 
           if (!supabaseClient) {
             operators.value = operators.value.filter(o => o.username !== username);
-            return;
-          }
-
-          const { error } = await supabaseClient.from('cargo_operators').delete().eq('username', username);
-          if (error) {
-            alert('账户删除失败: ' + error.message);
-          } else {
-            loadOperators();
-          }
-        };
-
-        onMounted(() => {
-          loadDataFromSupabase();
-        });
-
-        return {
-          currentRole, currentView, adminActiveTab, searchQuery, activeSub, activeMaster, zoomedPhoto,
-          adminSearchQuery, adminOperatorFilter, adminDateFilter,
-          masterWaybills, subWaybills, customerConsignments, showEditModal, editingSubProgress,
-          tempFile, uploading, showAddMasterModal, newMasterData, showAddSubModal, newSubData,
-          showLoginModal, currentUser, loginForm, submitLogin, editSubProgress, saveSubProgressStatus,
-          showEditSubModal, editingSubData, openEditSubModal, saveEditedSub, deleteMaster,
-          showAddOperatorModal, newOperatorData, operators, saveNewOperator, deleteOperator,
-          getStepDescription, getStepNamesForSub, getMasterWaybill, getSubsForMaster, getShippingTypeBadge,
-          toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
-          getTimelineLineHeight, zoomImage, setEditingStep,
-          onPhotoSelected, addSubToMaster, saveNewSub, saveNewMaster,
-          getFilteredSubsForMaster, getVisibleMasters, formatLocalTime: getLocalTime
-        };
-      }
-    }).mount('#app');
-  </script>
-</body>
-</html>
-<!-- END OF FILE cargo.html -->
