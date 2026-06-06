@@ -270,9 +270,44 @@
             </button>
           </div>
 
+          <!-- 搜索筛选面板 -->
+          <div class="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 shadow-xs">
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <input 
+                v-model="adminSearchQuery" 
+                type="text" 
+                placeholder="搜索客户/分单号/物品..." 
+                class="p-2.5 rounded-xl border border-slate-100 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-teal-500 font-sans"
+              />
+              <input 
+                v-model="adminOperatorFilter" 
+                type="text" 
+                placeholder="筛选操作员账号..." 
+                class="p-2.5 rounded-xl border border-slate-100 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-teal-500 font-sans"
+              />
+            </div>
+            <div class="flex items-center justify-between text-xs space-x-2">
+              <div class="flex-1 flex items-center bg-slate-50 border border-slate-100 rounded-xl px-2.5 py-1">
+                <span class="text-slate-400 mr-2 text-[10px] font-bold">创建/更新日期:</span>
+                <input 
+                  v-model="adminDateFilter" 
+                  type="date" 
+                  class="bg-transparent focus:outline-none w-full text-slate-600"
+                />
+              </div>
+              <button 
+                v-if="adminSearchQuery || adminOperatorFilter || adminDateFilter"
+                @click="adminSearchQuery = ''; adminOperatorFilter = ''; adminDateFilter = '';"
+                class="text-teal-600 hover:text-teal-700 font-bold px-3 py-1.5 text-[10px] bg-teal-50 rounded-lg transition"
+              >
+                清空筛选
+              </button>
+            </div>
+          </div>
+
           <!-- 主运单批次卡片 -->
           <div class="space-y-4">
-            <div v-for="master in masterWaybills" :key="master.id" class="bg-white border border-slate-100 rounded-2xl p-4.5 shadow-xs">
+            <div v-for="master in getVisibleMasters()" :key="master.id" class="bg-white border border-slate-100 rounded-2xl p-4.5 shadow-xs">
               <div class="flex justify-between items-start mb-2">
                 <div>
                   <div class="flex items-center space-x-2">
@@ -294,32 +329,41 @@
                 </div>
 
                 <div class="space-y-2">
-                  <div v-for="sub in getSubsForMaster(master.id)" :key="sub.sub_id" class="bg-slate-50/70 border border-slate-100/50 p-3 rounded-xl text-xs flex justify-between items-center">
-                    <div>
+                  <div v-for="sub in getFilteredSubsForMaster(master.id)" :key="sub.sub_id" class="bg-slate-50/70 border border-slate-100/50 p-3 rounded-xl text-xs flex justify-between items-center">
+                    <div class="flex-1 min-w-0 mr-2">
                       <div class="font-mono font-bold text-slate-800 flex items-center space-x-1.5">
                         <span>{{ sub.sub_id }}</span>
                         <span class="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-bold">{{ sub.customer_account }}</span>
                       </div>
-                      <div class="text-slate-500 mt-0.5 text-[11px] font-semibold">{{ sub.customer_name }} - {{ sub.product_name }}</div>
-                      <span class="text-[9px] text-teal-600 font-bold mt-1 inline-block bg-teal-50 px-1.5 py-0.2 rounded-md">
-                        当前节点: {{ sub.steps[sub.current_step]?.name }}
-                      </span>
+                      <div class="text-slate-500 mt-0.5 text-[11px] font-semibold truncate">{{ sub.customer_name }} - {{ sub.product_name }}</div>
+                      
+                      <!-- 操作痕迹与节点展示 -->
+                      <div class="mt-1 flex flex-col space-y-0.5">
+                        <span class="text-[9px] text-teal-600 font-bold bg-teal-50 px-1.5 py-0.2 rounded-md self-start">
+                          当前节点: {{ sub.steps[sub.current_step]?.name }}
+                        </span>
+                        <div class="text-[8.5px] text-slate-400 flex flex-wrap items-center gap-x-1.5 mt-1 border-t border-slate-100/40 pt-1">
+                          <span>👤 创建人: <strong class="text-slate-600 font-mono">{{ sub.created_by || 'system' }}</strong></span>
+                          <span class="text-slate-300">|</span>
+                          <span>✏️ 最新修改: <strong class="text-teal-600 font-mono">{{ sub.updated_by || 'system' }}</strong></span>
+                        </div>
+                      </div>
                     </div>
                     <div class="flex items-center space-x-1">
-                      <div class="text-right mr-2">
+                      <div class="text-right mr-2 flex-shrink-0">
                         <p class="font-bold text-slate-700 text-[11px]">{{ sub.weight }} KG</p>
                         <p class="text-[9px] text-slate-400">{{ sub.volume }} CBM / {{ sub.pieces }}件</p>
                       </div>
-                      <button @click="editSubProgress(sub)" class="bg-teal-600 hover:bg-teal-700 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-semibold transition shadow-xs">
+                      <button @click="editSubProgress(sub)" class="bg-teal-600 hover:bg-teal-700 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-semibold transition shadow-xs flex-shrink-0">
                         更新进度
                       </button>
-                      <button @click="openEditSubModal(sub)" class="text-slate-400 hover:text-slate-600 p-1.5 bg-white border border-slate-100 rounded-lg shadow-2xs text-[10px]">
+                      <button @click="openEditSubModal(sub)" class="text-slate-400 hover:text-slate-600 p-1.5 bg-white border border-slate-100 rounded-lg shadow-2xs text-[10px] flex-shrink-0">
                         ✏️
                       </button>
                     </div>
                   </div>
-                  <div v-if="getSubsForMaster(master.id).length === 0" class="text-center py-4 text-slate-400 text-xs">
-                    该批次暂无关联货物。
+                  <div v-if="getFilteredSubsForMaster(master.id).length === 0" class="text-center py-4 text-slate-400 text-xs">
+                    暂无符合过滤条件的货品。
                   </div>
                 </div>
               </div>
@@ -457,7 +501,6 @@
             <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">现场实况（拍照或选择本地相册图片）</label>
             <div class="flex items-center space-x-3">
               <label class="cursor-pointer bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl w-24 h-24 flex flex-col justify-center items-center text-slate-400 relative overflow-hidden transition">
-                <!-- 去除 capture="environment" 属性以兼容本地相册选取 -->
                 <input type="file" accept="image/*" @change="onPhotoSelected" class="hidden">
                 <span v-if="!tempFile" class="text-[10px] font-bold text-center">拍照或选图</span>
                 <span v-else class="text-[10px] text-teal-600 font-bold text-center">已选择 📷</span>
@@ -682,6 +725,11 @@
         const activeMaster = ref(null);
         const zoomedPhoto = ref(null);
         
+        // 后台搜索与过滤状态
+        const adminSearchQuery = ref('');
+        const adminOperatorFilter = ref('');
+        const adminDateFilter = ref('');
+
         const showEditModal = ref(false);
         const editingSubProgress = ref(null);
         const tempFile = ref(null);
@@ -725,6 +773,8 @@
                 pieces: 15,
                 current_step: 3,
                 master_shipping_type: 'sea',
+                created_by: 'admin',
+                updated_by: 'op_alex',
                 steps: stepDefinitions.sea.names.map((name, i) => ({
                   name,
                   time: i <= 3 ? '2026-06-01 14:20' : '',
@@ -751,6 +801,10 @@
                 const type = master ? master.shipping_type : 'sea';
                 sub.master_shipping_type = type;
                 
+                // 确保创建人和最新更新人字段有值，防止旧数据为空
+                sub.created_by = sub.created_by || 'system';
+                sub.updated_by = sub.updated_by || 'system';
+
                 // 动态初始化或补足7步数据，并绑定正确的名字
                 const config = stepDefinitions[type];
                 if (!sub.steps || sub.steps.length === 0) {
@@ -802,6 +856,57 @@
 
         const getMasterWaybill = (masterId) => masterWaybills.value.find(m => m.id === masterId) || null;
         const getSubsForMaster = (masterId) => subWaybills.value.filter(s => s.master_id === masterId);
+
+        // 核心：后台对每个主单内的子单进行高级过滤
+        const getFilteredSubsForMaster = (masterId) => {
+          let subs = subWaybills.value.filter(s => s.master_id === masterId);
+          
+          // 1. 客户名称、分单号、描述、客户账号过滤
+          if (adminSearchQuery.value) {
+            const q = adminSearchQuery.value.trim().toLowerCase();
+            subs = subs.filter(s => 
+              (s.customer_name && s.customer_name.toLowerCase().includes(q)) ||
+              (s.customer_account && s.customer_account.toLowerCase().includes(q)) ||
+              (s.sub_id && s.sub_id.toLowerCase().includes(q)) ||
+              (s.product_name && s.product_name.toLowerCase().includes(q))
+            );
+          }
+
+          // 2. 操作员 ID (创建者/修改者) 过滤
+          if (adminOperatorFilter.value) {
+            const op = adminOperatorFilter.value.trim().toLowerCase();
+            subs = subs.filter(s => 
+              (s.created_by && s.created_by.toLowerCase().includes(op)) ||
+              (s.updated_by && s.updated_by.toLowerCase().includes(op))
+            );
+          }
+
+          // 3. 业务日期过滤（查找哪天做过状态时间线节点更新，或主单创建的日期符合条件）
+          if (adminDateFilter.value) {
+            const dTarget = adminDateFilter.value; // 格式: YYYY-MM-DD
+            subs = subs.filter(s => {
+              const stepMatch = s.steps && s.steps.some(st => st.time && st.time.includes(dTarget));
+              const master = getMasterWaybill(s.master_id);
+              const masterDateMatch = master && master.created_at && master.created_at.includes(dTarget);
+              return stepMatch || masterDateMatch;
+            });
+          }
+
+          return subs;
+        };
+
+        // 智能显示：在存在搜索条件时，如果某主批次内没有匹配的子单，则对该主批次卡片进行隐藏
+        const getVisibleMasters = () => {
+          return masterWaybills.value.filter(master => {
+            const hasMatchingSubs = getFilteredSubsForMaster(master.id).length > 0;
+            if (!adminSearchQuery.value && !adminOperatorFilter.value && !adminDateFilter.value) {
+              return true; // 没有筛选条件，显示全部
+            }
+            // 筛选激活时：若主单号本身包含检索词，或者主单内含匹配的子单，则予以展示
+            const masterIdMatch = adminSearchQuery.value && master.id.toLowerCase().includes(adminSearchQuery.value.trim().toLowerCase());
+            return hasMatchingSubs || masterIdMatch;
+          });
+        };
 
         const getShippingTypeBadge = (type) => {
           const types = {
@@ -985,9 +1090,13 @@
 
           editingSubProgress.value.steps[editingSubProgress.value.current_step].photo = photoUrl;
 
+          // 记录当前修改进度的操作员
+          const operatorUsername = currentUser.value ? currentUser.value.username : 'system';
+
           if (!supabaseClient) {
             target.current_step = editingSubProgress.value.current_step;
             target.steps = editingSubProgress.value.steps;
+            target.updated_by = operatorUsername; // 保存至 Mock 数据库
             showEditModal.value = false;
             uploading.value = false;
             alert('Mock更新成功！');
@@ -998,7 +1107,8 @@
             .from('cargo_sub_waybills')
             .update({
               current_step: editingSubProgress.value.current_step,
-              steps: editingSubProgress.value.steps
+              steps: editingSubProgress.value.steps,
+              updated_by: operatorUsername // 同步最新更新的操作员 ID
             })
             .eq('sub_id', editingSubProgress.value.sub_id);
 
@@ -1080,6 +1190,10 @@
           const config = stepDefinitions[type];
 
           const newSubId = 'SUB-' + getLocalIDDate() + Math.floor(Math.random()*100).toString().padStart(2, '0');
+          
+          // 获取当前登录的操作员 ID
+          const currentOpId = currentUser.value ? currentUser.value.username : 'system';
+
           const newSub = {
             sub_id: newSubId,
             master_id: d.masterId,
@@ -1095,7 +1209,9 @@
               time: i === 0 ? getLocalTime() : '',
               photo: '',
               desc: ''
-            }))
+            })),
+            created_by: currentOpId, // 初始化记录创建人
+            updated_by: currentOpId  // 最新更新人初始化为创建人
           };
 
           if (!supabaseClient) {
@@ -1125,10 +1241,13 @@
             return alert('请完整填写关键信息');
           }
 
+          const currentOpId = currentUser.value ? currentUser.value.username : 'system';
+
           if (!supabaseClient) {
             const index = subWaybills.value.findIndex(s => s.sub_id === d.sub_id);
             if (index !== -1) {
               subWaybills.value[index] = d;
+              subWaybills.value[index].updated_by = currentOpId; // 修改资料也留痕
             }
             showEditSubModal.value = false;
             return;
@@ -1142,7 +1261,8 @@
               product_name: d.product_name,
               weight: parseFloat(d.weight) || 0,
               volume: parseFloat(d.volume) || 0,
-              pieces: parseInt(d.pieces) || 1
+              pieces: parseInt(d.pieces) || 1,
+              updated_by: currentOpId // 修改资料时同步记录操作员
             })
             .eq('sub_id', d.sub_id);
 
@@ -1204,6 +1324,7 @@
 
         return {
           currentRole, currentView, adminActiveTab, searchQuery, activeSub, activeMaster, zoomedPhoto,
+          adminSearchQuery, adminOperatorFilter, adminDateFilter,
           masterWaybills, subWaybills, customerConsignments, showEditModal, editingSubProgress,
           tempFile, uploading, showAddMasterModal, newMasterData, showAddSubModal, newSubData,
           showLoginModal, currentUser, loginForm, submitLogin, editSubProgress, saveSubProgressStatus,
@@ -1213,7 +1334,7 @@
           toggleRole, handleSearch, viewDetail, goBackToQuery, goBackToList,
           getTimelineLineHeight, zoomImage, setEditingStep,
           onPhotoSelected, addSubToMaster, saveNewSub, saveNewMaster,
-          formatLocalTime: getLocalTime
+          getFilteredSubsForMaster, getVisibleMasters, formatLocalTime: getLocalTime
         };
       }
     }).mount('#app');
