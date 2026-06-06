@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta "viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agnes AI 智能多模态助手 (黄金比例+同图连生版)</title>
     <!-- 引入 Tailwind CSS & Typography 插件 -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
@@ -39,7 +39,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen flex overflow-hidden">
+<body class="bg-gray-50 text-gray-800 h-[100dvh] flex overflow-hidden">
 
     <!-- 移动端顶部导航 (小屏) -->
     <div class="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-20">
@@ -138,10 +138,10 @@
     <div id="sidebarOverlay" onclick="toggleSidebar(false)" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20"></div>
 
     <!-- 右侧主对话区 -->
-    <main class="flex-grow flex flex-col h-screen pt-14 lg:pt-0 relative bg-white">
+    <main class="flex-grow flex flex-col h-full min-h-0 pt-14 lg:pt-0 relative bg-white overflow-hidden">
         
         <!-- 顶部控制状态栏 -->
-        <header class="hidden lg:flex h-14 border-b border-gray-100 items-center px-6 justify-between bg-white z-10">
+        <header class="hidden lg:flex h-14 border-b border-gray-100 items-center px-6 justify-between bg-white z-10 flex-shrink-0">
             <span id="headerChatTitle" class="font-semibold text-gray-800 text-sm">新对话</span>
             
             <div class="flex items-center gap-2">
@@ -155,10 +155,10 @@
         </header>
 
         <!-- 消息显示区 -->
-        <div id="chatMessageArea" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col"></div>
+        <div id="chatMessageArea" class="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 space-y-6 flex flex-col"></div>
 
         <!-- 底部输入栏 -->
-        <div class="border-t border-gray-100 bg-white p-4">
+        <div class="border-t border-gray-100 bg-white p-4 flex-shrink-0">
             <div class="max-w-3xl mx-auto relative flex flex-col space-y-2">
                 <div class="flex items-end gap-2 border border-gray-200 rounded-xl p-2 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 bg-white">
                     <textarea id="promptInput" rows="1" oninput="autoResizeTextarea(this)" placeholder="输入提示词描述您想生成或聊天的内容..." 
@@ -437,10 +437,10 @@
             const bubble = document.createElement('div');
             
             if (isUser) {
-                bubble.className = "bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-2.5 max-w-[85%] md:max-w-[75%] shadow-sm text-sm whitespace-pre-wrap leading-relaxed";
+                bubble.className = "relative group bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-2.5 pr-10 max-w-[85%] md:max-w-[75%] shadow-sm text-sm whitespace-pre-wrap leading-relaxed break-words";
                 bubble.innerText = content;
             } else {
-                bubble.className = "bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-2.5 max-w-[85%] md:max-w-[75%] shadow-sm text-sm text-gray-800 leading-relaxed";
+                bubble.className = "relative group bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-2.5 pr-10 max-w-[85%] md:max-w-[75%] shadow-sm text-sm text-gray-800 leading-relaxed break-words";
                 
                 if (isPending) {
                     bubble.id = "pending-bubble";
@@ -460,10 +460,47 @@
                             <p class="text-xs text-gray-400 mt-1">Prompt: ${content}</p>
                         </div>`;
                     } else {
-                        bubble.className += " prose prose-slate prose-sm";
+                        bubble.className += " prose prose-slate prose-sm max-w-none";
                         bubble.innerHTML = marked.parse(content);
                     }
                 }
+            }
+
+            // 添加一键复制功能 (当处于完成状态时)
+            if (!isPending) {
+                const copyBtn = document.createElement('button');
+                if (isUser) {
+                    copyBtn.className = "absolute top-2.5 right-2.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity p-1 bg-blue-700/80 hover:bg-blue-850 text-blue-100 rounded-md border border-blue-500/30 backdrop-blur-sm shadow-sm flex items-center justify-center cursor-pointer";
+                } else {
+                    copyBtn.className = "absolute top-2.5 right-2.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity p-1 bg-gray-100/80 hover:bg-gray-250 text-gray-500 rounded-md border border-gray-200/50 backdrop-blur-sm shadow-sm flex items-center justify-center cursor-pointer";
+                }
+                copyBtn.setAttribute('title', '复制内容');
+                copyBtn.innerHTML = `
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                `;
+
+                // 处理需要复制的内容
+                let textToCopy = content;
+                if (type === 'image' || type === 'video') {
+                    textToCopy = `提示词: ${content}\n媒体链接: ${mediaUrl}`;
+                }
+
+                copyBtn._textToCopy = textToCopy;
+                copyBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(this._textToCopy).then(() => {
+                        const origHTML = this.innerHTML;
+                        this.innerHTML = `
+                            <svg class="w-3.5 h-3.5 text-green-500 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                        `;
+                        setTimeout(() => {
+                            this.innerHTML = origHTML;
+                        }, 1500);
+                    }).catch(err => {
+                        console.error('复制失败:', err);
+                    });
+                };
+                bubble.appendChild(copyBtn);
             }
 
             wrapper.appendChild(bubble);
@@ -530,7 +567,7 @@
 
             const pending = document.getElementById('pending-bubble');
             pending.id = "streaming-bubble";
-            pending.className += " prose prose-slate prose-sm";
+            pending.className += " prose prose-slate prose-sm max-w-none";
             pending.innerHTML = "";
 
             const reader = response.body.getReader();
