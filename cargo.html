@@ -163,7 +163,7 @@
           </div>
         </div>
 
-        <!-- 核心运单信息卡片（登机牌风格设计） -->
+        <!-- 核心运单信息卡片 -->
         <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden">
           <div class="absolute -right-4 -bottom-4 opacity-10">
             <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" /></svg>
@@ -204,22 +204,17 @@
           </h4>
 
           <div class="relative pl-6 space-y-8">
-            <!-- 灰色背景轨道 -->
             <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100 z-0"></div>
-            <!-- 彩色激活轨道 -->
             <div class="absolute left-[11px] top-2 w-0.5 bg-gradient-to-b from-teal-500 to-cyan-500 transition-all duration-500 z-0" :style="{ height: getTimelineLineHeight() }"></div>
 
             <div v-for="(step, index) in activeSub.steps" :key="index" class="relative flex items-start space-x-4">
               <div class="absolute -left-[20px] z-10">
-                <!-- 过去的节点 -->
                 <div v-if="index < activeSub.current_step" class="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white shadow-xs">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 </div>
-                <!-- 现在的节点 -->
                 <div v-else-if="index === activeSub.current_step" class="w-6 h-6 rounded-full bg-teal-600 flex items-center justify-center text-white shadow-md pulse-glow">
                   <div class="w-2 h-2 bg-white rounded-full"></div>
                 </div>
-                <!-- 未来的节点 -->
                 <div v-else class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-300 border border-slate-200">
                   <span class="text-[9px] font-bold">{{ index + 1 }}</span>
                 </div>
@@ -457,14 +452,15 @@
             ></textarea>
           </div>
 
-          <!-- 拍照上传 -->
+          <!-- 拍照及上传本地图片 -->
           <div>
-            <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">现场拍照（调用摄像头或上传照片）</label>
+            <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">现场实况（拍照或选择本地相册图片）</label>
             <div class="flex items-center space-x-3">
               <label class="cursor-pointer bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl w-24 h-24 flex flex-col justify-center items-center text-slate-400 relative overflow-hidden transition">
-                <input type="file" accept="image/*" capture="environment" @change="onPhotoSelected" class="hidden">
-                <span v-if="!tempFile" class="text-[10px] font-bold">点击拍摄</span>
-                <span v-else class="text-[10px] text-teal-600 font-bold">已选图 📷</span>
+                <!-- 去除 capture="environment" 属性以兼容本地相册选取 -->
+                <input type="file" accept="image/*" @change="onPhotoSelected" class="hidden">
+                <span v-if="!tempFile" class="text-[10px] font-bold text-center">拍照或选图</span>
+                <span v-else class="text-[10px] text-teal-600 font-bold text-center">已选择 📷</span>
               </label>
               <span v-if="uploading" class="text-xs text-amber-500 font-semibold animate-pulse">正在上传实况图片...</span>
             </div>
